@@ -159,8 +159,8 @@ FuzzTransactionInput = TypedDict('FuzzTransactionInput', {
     'gaslimit': int,
     'balance': NotRequired[int | None],
     'call_return': NotRequired[dict['HexAddress', Any]],
-    'extcodesize': NotRequired[dict['HexAddress', int]],
-    'returndatasize': NotRequired[dict['HexAddress', int]]
+    'extcodesize': NotRequired[dict['HexAddress', int | None]],
+    'returndatasize': NotRequired[dict['HexAddress', int | None]]
 })
 
 class Generator:

@@ -79,26 +79,22 @@ class Mutation(Mutation):
                 for address in gene['extcodesize']:
                     if random.random() <= self.pm:
                         extcodesize_value = individual.generator.get_random_extcodesize(function_hash, address)
-                        assert extcodesize_value is not None
                         gene['extcodesize'][address] = extcodesize_value
             else:
                 gene['extcodesize'] = dict()
                 address, extcodesize_value = individual.generator.get_random_extcodesize_and_address(function_hash)
                 if address is not None and address not in gene['extcodesize']:
-                    assert extcodesize_value is not None
                     gene['extcodesize'][address] = extcodesize_value
 
             if 'returndatasize' in gene:
                 for address in gene['returndatasize']:
                     if random.random() <= self.pm:
                         returndatasize_value = individual.generator.get_random_returndatasize(function_hash, address)
-                        assert returndatasize_value is not None
                         gene['returndatasize'][address] = returndatasize_value
             else:
                 gene['returndatasize'] = dict()
                 address, returndatasize_value = individual.generator.get_random_returndatasize_and_address(function_hash)
                 if address and address not in gene['returndatasize']:
-                    assert returndatasize_value is not None
                     gene['returndatasize'][address] = returndatasize_value
 
         individual.solution = individual.decode()

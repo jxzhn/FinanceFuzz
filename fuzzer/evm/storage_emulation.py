@@ -275,10 +275,10 @@ class StateAPIWithFuzzInfo(StateAPI):
     fuzzed_blocknumber: int | None
     fuzzed_balance: int | None
     fuzzed_call_return: dict[HexAddress, int] | None
-    fuzzed_extcodesize: dict[HexAddress, int] | None
-    fuzzed_returndatasize: dict[HexAddress, int] | None
+    fuzzed_extcodesize: dict[HexAddress, int | None] | None
+    fuzzed_returndatasize: dict[HexAddress, int | None] | None
 
-TracedInstruction = TypedDict('TraceRecord', {
+TracedInstruction = TypedDict('TracedInstruction', {
     'pc': int,
     'op': str,
     'depth': int,
@@ -367,18 +367,18 @@ def fuzz_extcodesize_opcode_fn(computation: ComputationAPI, opcode_fn: OpcodeAPI
     state = cast(StateAPIWithFuzzInfo, computation.state)
     if settings.ENVIRONMENTAL_INSTRUMENTATION and hasattr(computation.state, 'fuzzed_extcodesize') and state.fuzzed_extcodesize is not None\
             and _to in state.fuzzed_extcodesize and state.fuzzed_extcodesize[_to] is not None:
-        computation.stack_push_int(state.fuzzed_extcodesize[_to])
+        computation.stack_push_int(cast(int, state.fuzzed_extcodesize[_to]))
     else:
         computation.stack_push_bytes(to)
         opcode_fn(computation=computation)
 
-def fuzz_returndatasize_opcode_fn(previous_call_address: HexAddress, computation: ComputationAPI, opcode_fn: OpcodeAPI) -> None:
+def fuzz_returndatasize_opcode_fn(previous_call_address: HexAddress | None, computation: ComputationAPI, opcode_fn: OpcodeAPI) -> None:
     opcode_fn(computation=computation)
     size = computation.stack_pop1_int()
     state = cast(StateAPIWithFuzzInfo, computation.state)
     if settings.ENVIRONMENTAL_INSTRUMENTATION and hasattr(computation.state, 'fuzzed_returndatasize') and state.fuzzed_returndatasize is not None\
             and previous_call_address in state.fuzzed_returndatasize and state.fuzzed_returndatasize[previous_call_address] is not None:
-        computation.stack_push_int(state.fuzzed_returndatasize[previous_call_address])
+        computation.stack_push_int(cast(int, state.fuzzed_returndatasize[previous_call_address]))
     else:
         computation.stack_push_int(size)
 

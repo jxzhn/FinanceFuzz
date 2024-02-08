@@ -31,11 +31,11 @@ BlockDict = TypedDict('BlockDict', {
 GlobalStateDict = TypedDict('GlobalStateDict', {
     'balance': NotRequired[int],
     'call_return': NotRequired[dict['HexAddress', Any]],
-    'extcodesize': NotRequired[dict['HexAddress', int]]
+    'extcodesize': NotRequired[dict['HexAddress', int | None]]
 })
 
 EnvironmentDict = TypedDict('EnvironmentDict', {
-    'returndatasize': NotRequired[dict['HexAddress', int]]
+    'returndatasize': NotRequired[dict['HexAddress', int | None]]
 })
 
 InputDict = TypedDict('InputDict', {

@@ -3,12 +3,12 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from .base import BaseDetector
+from .base import BaseBasicDetector
 
 if TYPE_CHECKING:
     from evm.storage_emulation import TracedInstruction
 
-class AssertionFailureDetector(BaseDetector):
+class AssertionFailureDetector(BaseBasicDetector):
     def __init__(self) -> None:
         self.swc_id = 110
         self.severity = 'Medium'

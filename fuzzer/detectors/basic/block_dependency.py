@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from .base import BaseDetector
+from .base import BaseBasicDetector
 from utils.utils import convert_stack_value_to_int
 
 if TYPE_CHECKING:
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from evm.storage_emulation import TracedInstruction
     from z3 import BoolRef
 
-class BlockDependencyDetector(BaseDetector):
+class BlockDependencyDetector(BaseBasicDetector):
     def __init__(self) -> None:
         self.swc_id = 120
         self.severity = 'Low'

@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from .base import BaseDetector
+from .base import BaseBasicDetector
 from z3 import is_expr
 from utils import settings
 
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from engine.analysis.symbolic_taint_analysis import TaintRecord
     from engine.components import Individual
 
-class UnsafeDelegatecallDetector(BaseDetector):
+class UnsafeDelegatecallDetector(BaseBasicDetector):
     def __init__(self) -> None:
         self.swc_id = 112
         self.severity = 'High'

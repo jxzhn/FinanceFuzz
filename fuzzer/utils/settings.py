@@ -23,7 +23,7 @@ SOLVER_TIMEOUT: int = 100
 # List of attacker accounts
 ATTACKER_ACCOUNTS: list[str] = ['0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef']
 # Default gas limit for sending transactions
-GAS_LIMIT: int = 4500000
+GAS_LIMIT: int = 45000000
 # Default gas price for sending transactions
 GAS_PRICE: int = 10
 # Default account balance

@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from .base import BaseDetector
+from .base import BaseBasicDetector
 from z3 import is_expr
 from z3.z3util import get_vars
 from utils.utils import convert_stack_value_to_int
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from engine.analysis.symbolic_taint_analysis import TaintRecord
     from z3 import BitVecRef
 
-class UncheckedReturnValueDetector(BaseDetector):
+class UncheckedReturnValueDetector(BaseBasicDetector):
     def __init__(self) -> None:
         self.swc_id = 104
         self.severity = 'Medium'

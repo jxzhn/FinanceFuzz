@@ -153,6 +153,8 @@ class ExecutionTraceAnalyzer(OnTheFlyAnalysis):
             if transaction['to'] is None:
                 continue
 
+            env.invarient_detector_executor.prepare_detectors(env)
+
             try:
                 result = env.instrumented_evm.deploy_transaction(test)
             except ValidationError as e:
@@ -171,6 +173,8 @@ class ExecutionTraceAnalyzer(OnTheFlyAnalysis):
                 env.children_code_coverage[child_computation.msg.to].update([x['pc'] for x in child_computation.trace])
 
             env.nr_of_transactions += 1
+
+            env.invarient_detector_executor.run_detectors(test, result, env.results['advanced_errors'], indv, env, transaction_index)
 
             previous_instruction = None
             previous_branch: list[BoolRef] = []

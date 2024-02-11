@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
-from .base import BaseDetector
+from .base import BaseBasicDetector
 from z3 import BitVec
 from utils.utils import convert_stack_value_to_int, convert_stack_value_to_hex
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from evm.storage_emulation import TracedInstruction
     from engine.components import Individual
 
-class IntegerOverflowDetector(BaseDetector):
+class IntegerOverflowDetector(BaseBasicDetector):
     def __init__(self) -> None:
         self.swc_id = 101
         self.severity = 'High'

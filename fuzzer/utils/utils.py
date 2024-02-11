@@ -169,6 +169,22 @@ def get_function_signature_mapping(abi: dict) -> dict[str, str]:
         mapping['fallback'] = 'fallback'
     return mapping
 
+def get_event_signature_mapping(abi: dict) -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    for field in abi:
+        if field['type'] == 'event':
+            function_name = field['name']
+            signature = function_name + '('
+            for i in range(len(field['inputs'])):
+                input_type = field['inputs'][i]['type']
+                signature += input_type
+                if i < len(field['inputs']) - 1:
+                    signature += ','
+            signature += ')'
+            hash = Web3.keccak(text=signature)[0:4].hex()
+            mapping[hash] = signature
+    return mapping
+
 def remove_swarm_hash(bytecode: str) -> str:
     if isinstance(bytecode, str):
         if bytecode.endswith('0029'):

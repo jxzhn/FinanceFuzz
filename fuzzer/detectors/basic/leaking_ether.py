@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from .base import BaseDetector
+from .base import BaseBasicDetector
 from z3 import is_expr
 from utils import settings
 from utils.utils import convert_stack_value_to_int, convert_stack_value_to_hex
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from z3 import BoolRef
     from eth_typing import HexAddress
 
-class LeakingEtherDetector(BaseDetector):
+class LeakingEtherDetector(BaseBasicDetector):
     def __init__(self) -> None:
         self.swc_id = 105
         self.severity = 'High'

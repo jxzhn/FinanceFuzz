@@ -3,14 +3,14 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from .base import BaseDetector
+from .base import BaseBasicDetector
 
 if TYPE_CHECKING:
     from utils.control_flow_graph import ControlFlowGraph
     from evm.storage_emulation import TracedInstruction
     from engine.components import Individual
 
-class LockingEtherDetector(BaseDetector):
+class LockingEtherDetector(BaseBasicDetector):
     def __init__(self) -> None:
         self.swc_id = 132
         self.severity = 'Medium'

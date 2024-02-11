@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from .base import BaseDetector
+from .base import BaseBasicDetector
 from z3 import is_expr
 from z3.z3util import get_vars
 from utils.utils import convert_stack_value_to_int
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from z3 import BitVecRef
     from eth_typing import HexAddress
 
-class TransactionOrderDependencyDetector(BaseDetector):
+class TransactionOrderDependencyDetector(BaseBasicDetector):
     def __init__(self) -> None:
         self.swc_id = 114
         self.severity = 'Medium'

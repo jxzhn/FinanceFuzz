@@ -3,7 +3,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
-from .base import BaseDetector
+from .base import BaseBasicDetector
 from z3 import is_expr
 from z3.z3util import get_vars
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from evm.storage_emulation import TracedInstruction
     from z3 import BitVecRef
 
-class ArbitraryMemoryAccessDetector(BaseDetector):
+class ArbitraryMemoryAccessDetector(BaseBasicDetector):
     def __init__(self) -> None:
         self.swc_id = 124
         self.severity = 'High'

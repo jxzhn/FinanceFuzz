@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-from typing import Any, Literal, TypedDict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, TypedDict, NotRequired
 
 from dataclasses import dataclass, field
 
@@ -10,12 +10,12 @@ if TYPE_CHECKING:
     from z3 import Solver, ExprRef
     from engine.analysis.symbolic_taint_analysis import SymbolicTaintAnalyzer
     from engine.analysis.execution_trace_analysis import VisitedBranchRecord
-    from detectors import DetectorExecutor
+    from detectors import BasicDetectorExecutor, InvarientDetectorExecutor
     import argparse
     from utils.control_flow_graph import ControlFlowGraph
     from engine.components import Population
+    from engine.components.individual import InputDict
     from eth_typing import Address, HexAddress
-    from detectors import ErrorRecord
 
 GenerationRecord = TypedDict('GenerationRecord', {
     'generation': int,
@@ -45,9 +45,21 @@ BranchCoverageRecord = TypedDict('BranchCoverageRecord', {
     'total': int,
 })
 
+ErrorRecord = TypedDict('ErrorRecord', {
+    'swc_id': int,
+    'severity': str,
+    'type': str,
+    'individual': list['InputDict'],
+    'time': float,
+    'line': NotRequired[int],
+    'column': NotRequired[int],
+    'source_code': NotRequired[str],
+})
+
 FuzzResult = TypedDict('FuzzResult', {
     'generations': list[GenerationRecord],
-    'errors': dict[int, list['ErrorRecord']],
+    'errors': dict[int, list[ErrorRecord]],
+    'advanced_errors': dict[str, list[ErrorRecord]],
     'transactions': TransactionRecord,
     'code_coverage': CodeCoverageRecord,
     'branch_coverage': BranchCoverageRecord,
@@ -57,6 +69,7 @@ FuzzResult = TypedDict('FuzzResult', {
     'seed': float,
 }, total=False)
 
+
 @dataclass
 class FuzzingEnvironment:
     contract_name: str
@@ -64,7 +77,8 @@ class FuzzingEnvironment:
     solver: Solver
     results: FuzzResult
     symbolic_taint_analyzer: SymbolicTaintAnalyzer
-    detector_executor: DetectorExecutor
+    detector_executor: BasicDetectorExecutor
+    invarient_detector_executor: InvarientDetectorExecutor
     interface: dict[str, list[str]]
     overall_pcs: list[int]
     overall_jumpis: list[int]

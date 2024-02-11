@@ -15,7 +15,7 @@ from eth_utils.hexadecimal import encode_hex
 from eth_utils.address import to_canonical_address
 from z3 import Solver
 from evm import InstrumentedEVM
-from detectors import DetectorExecutor
+from detectors import BasicDetectorExecutor, InvarientDetectorExecutor
 from engine import EvolutionaryFuzzingEngine
 from engine.components import Generator, Population
 from engine.analysis import SymbolicTaintAnalyzer, ExecutionTraceAnalyzer
@@ -26,10 +26,9 @@ from engine.operators import Crossover
 from engine.operators import DataDependencyCrossover
 from engine.operators import Mutation
 from engine.fitness import fitness_function
-
 from utils import settings
 from utils.source_map import SourceMap
-from utils.utils import initialize_logger, compile, get_interface_from_abi, get_pcs_and_jumpis, get_function_signature_mapping
+from utils.utils import initialize_logger, compile, get_interface_from_abi, get_pcs_and_jumpis, get_function_signature_mapping, get_event_signature_mapping
 from utils.control_flow_graph import ControlFlowGraph
 
 if TYPE_CHECKING:
@@ -59,7 +58,7 @@ class Fuzzer:
         self.overall_pcs, self.overall_jumpis = get_pcs_and_jumpis(runtime_bytecode)
 
         # Initialize results
-        self.results: FuzzResult = {'errors': {}}
+        self.results: FuzzResult = {'errors': {}, 'advanced_errors': {}}
 
         # Initialize fuzzing environment
         self.env = FuzzingEnvironment(instrumented_evm=self.instrumented_evm,
@@ -67,7 +66,8 @@ class Fuzzer:
                                       solver=self.solver,
                                       results=self.results,
                                       symbolic_taint_analyzer=SymbolicTaintAnalyzer(),
-                                      detector_executor=DetectorExecutor(source_map, get_function_signature_mapping(abi)),
+                                      detector_executor=BasicDetectorExecutor(source_map, get_function_signature_mapping(abi)),
+                                      invarient_detector_executor=InvarientDetectorExecutor(get_function_signature_mapping(abi), get_event_signature_mapping(abi)),
                                       interface=self.interface,
                                       overall_pcs=self.overall_pcs,
                                       overall_jumpis=self.overall_jumpis,

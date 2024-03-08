@@ -87,7 +87,7 @@ class FuzzingEnvironment:
     args: argparse.Namespace
     seed: float
     cfg: ControlFlowGraph
-    abi: dict
+    abi: list
     
     nr_of_transactions: int = 0
     unique_individuals: set[str] = field(default_factory=set)

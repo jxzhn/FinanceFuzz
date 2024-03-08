@@ -46,8 +46,6 @@ if TYPE_CHECKING:
     from eth.exceptions import VMError
     from eth.vm.stack import Stack
 
-BLOCK_ID = 'latest'
-
 # STORAGE EMULATOR
 class EmulatorAccountDB(AccountDatabaseAPI):
     _raw_store_db: AtomicDB # db is an `AtomicDB` whose wrapped_db is `MyMemoryDB`, see evm/__init__.py
@@ -100,7 +98,7 @@ class EmulatorAccountDB(AccountDatabaseAPI):
             except KeyError:
                 return 0
         else:
-            result = self._remote.get_storage_at(address, slot, 'latest')
+            result = self._remote.get_storage_at(address, slot, settings.BLOCK_HEIGHT)
             result = to_int(result.hex())
             self.set_storage(address, slot, result)
             if self._snapshot is not None:
@@ -136,7 +134,7 @@ class EmulatorAccountDB(AccountDatabaseAPI):
         elif not self._remote:
             account = Account()
         else:
-            code = self._remote.get_code(address, BLOCK_ID)
+            code = self._remote.get_code(address, settings.BLOCK_HEIGHT)
             if code:
                 code_hash = keccak(code)
                 self._code_storage_emulator[code_hash] = code
@@ -146,8 +144,8 @@ class EmulatorAccountDB(AccountDatabaseAPI):
             else:
                 code_hash = EMPTY_SHA3
             account = Account(
-                int(self._remote.get_transaction_count(address, BLOCK_ID)) + 1,
-                self._remote.get_balance(address, BLOCK_ID),
+                int(self._remote.get_transaction_count(address, settings.BLOCK_HEIGHT)) + 1,
+                self._remote.get_balance(address, settings.BLOCK_HEIGHT),
                 BLANK_ROOT_HASH,
                 code_hash
             )

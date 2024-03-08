@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-from typing import TYPE_CHECKING, Iterable, Any, TypedDict, NotRequired
+from typing import TYPE_CHECKING, Iterable, Any, TypedDict, NotRequired, cast
 
 import random
 import collections
 
 from utils import settings
 from utils.utils import *
+from eth_abi.abi import decode
 
 if TYPE_CHECKING:
     from eth_typing import HexStr, HexAddress
@@ -122,7 +123,7 @@ MAX_ARRAY_LENGTH = 2
 
 class CircularSet[T]:
     def __init__(self, set_size: int = MAX_RING_BUFFER_LENGTH, initial_set: Iterable[T] | None = None) -> None:
-        self._q = collections.deque(maxlen=set_size)
+        self._q = collections.deque[T](maxlen=set_size)
         if initial_set:
             self._q.extend(initial_set)
 
@@ -187,11 +188,31 @@ class Generator:
         self.strings_pool = CircularSet[str]()
         self.bytes_pool = CircularSet[bytes]()
 
+    def init_pool_from_history(self, history_transactions: list[dict]) -> None:
+        self.logger.info('Initializing pools from history')
+        for transaction in history_transactions:
+            if transaction['input'] != '':
+                function_selector = transaction['input'][:10]
+                data = bytes.fromhex(transaction['input'][10:])
+                if function_selector in self.interface:
+                    argument_types = self.interface[function_selector]
+                    arguments = decode(argument_types, data)
+                    for idx, arg in enumerate(arguments):
+                        self.add_argument_to_pool(function_selector, idx, arg)
+                        if argument_types[idx] == 'address':
+                            self.add_account_to_pool(function_selector, arg)
+                    self.add_account_to_pool(function_selector, transaction['from'])
+                else:
+                    self.logger.warning(f'Function selector {function_selector} not in abi interface')
+            else:
+                self.add_account_to_pool('fallback', transaction['from'])
+        self.logger.info('Pools initialized')
+
     def generate_random_individual(self) -> list[FuzzTransactionInput]:
         individual: list[FuzzTransactionInput] = []
 
         function, argument_types = self.get_random_function_with_argument_types()
-        arguments = [function]
+        arguments: list[Any] = [function]
         for index in range(len(argument_types)):
             arguments.append(self.get_random_argument(argument_types[index], function, index))
         individual.append({

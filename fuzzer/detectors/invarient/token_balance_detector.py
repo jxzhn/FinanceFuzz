@@ -10,6 +10,7 @@ from eth.constants import ZERO_ADDRESS
 from eth_utils.address import to_normalized_address
 from eth_abi.abi import encode
 from utils import settings
+from utils.utils import initialize_logger
 
 if TYPE_CHECKING:
     from evm.storage_emulation import ComputationAPIWithFuzzInfo
@@ -41,13 +42,17 @@ class TokenBalanceDetector(BaseInvarientDetector):
     def __init__(self, function_signature_mapping: dict[str, str] = {}, event_signature_mapping: dict[str, str] = {}) -> None:
         self.severity = 'High'
         
-        self.signature_mapping: dict[str, str] = {**function_signature_mapping, **event_signature_mapping}
+        self.signature_mapping: dict[str, str] = event_signature_mapping
         self.storage_snapshot: AtomicDB | None = None
+
+        self.logger = initialize_logger('Detector')
 
         function_signatures = {signature for hash, signature in function_signature_mapping.items()}
         event_signatures = {signature for hash, signature in event_signature_mapping.items()}
         # only enabled for ERC20 tokens
         self.enabled = function_signatures.issuperset(self.erc20_functions) and event_signatures.issuperset(self.erc20_events)
+        if self.enabled:
+            self.logger.info('ERC20 token balance invarient detector is enabled')
     
     def prepare_detect_step(self, env: FuzzingEnvironment) -> None:
         if not self.enabled:
@@ -58,16 +63,20 @@ class TokenBalanceDetector(BaseInvarientDetector):
         self.storage_snapshot = env.instrumented_evm.snapshot
         env.instrumented_evm.snapshot = origin_snapshot
     
-    def run_detect_step(self, test_input: InputDict, test_output: ComputationAPIWithFuzzInfo, env: FuzzingEnvironment,) -> tuple[str, str] | tuple[None, None]:
+    def run_detect_step(self, test_input: InputDict, test_output: ComputationAPIWithFuzzInfo, env: FuzzingEnvironment) -> tuple[str, str] | tuple[None, None]:
         if not self.enabled:
             return None, None
         
         assert self.storage_snapshot is not None
         
-        contract_address = test_input['transaction']['to']
+        contract_address = to_normalized_address(test_input['transaction']['to'])
         transfer_related_addresses: set[HexAddress] = set()
 
         for log_entry in test_output.get_log_entries():
+            event_address = to_normalized_address(log_entry[0])
+            if event_address != contract_address:
+                continue
+            
             topic = to_hex(log_entry[1][0], 64)
             event_signature = self.signature_mapping[topic[:10]]
 

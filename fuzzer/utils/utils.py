@@ -122,7 +122,7 @@ def compile(solc_version: str | Version, evm_version: str, source_code_file: str
         print(e.message) # type: ignore
     return out
 
-def get_interface_from_abi(abi: dict) -> dict[str, list[str]]:
+def get_interface_from_abi(abi: list) -> dict[str, list[str]]:
     '''
     return a dict mapping function signature to its argument type list
     '''
@@ -151,7 +151,7 @@ def get_interface_from_abi(abi: dict) -> dict[str, list[str]]:
         interface['fallback'] = []
     return interface
 
-def get_function_signature_mapping(abi: dict) -> dict[str, str]:
+def get_function_signature_mapping(abi: list) -> dict[str, str]:
     mapping: dict[str, str] = {}
     for field in abi:
         if field['type'] == 'function':
@@ -169,7 +169,7 @@ def get_function_signature_mapping(abi: dict) -> dict[str, str]:
         mapping['fallback'] = 'fallback'
     return mapping
 
-def get_event_signature_mapping(abi: dict) -> dict[str, str]:
+def get_event_signature_mapping(abi: list) -> dict[str, str]:
     mapping: dict[str, str] = {}
     for field in abi:
         if field['type'] == 'event':

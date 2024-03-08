@@ -10,7 +10,6 @@ from utils.utils import print_individual_solution_as_transaction, initialize_log
 from .invarient.token_balance_detector import TokenBalanceDetector
 
 if TYPE_CHECKING:
-    from utils.source_map import SourceMap
     from engine.components.individual import Individual, InputDict
     from engine.environment import FuzzingEnvironment, ErrorRecord
     from .invarient.base import BaseInvarientDetector

@@ -8,6 +8,7 @@ import sys
 import time
 import random
 import json
+import csv
 import solcx
 import argparse
 
@@ -37,7 +38,7 @@ if TYPE_CHECKING:
     from engine.environment import FuzzResult
 
 class Fuzzer:
-    def __init__(self, contract_name: str, abi: Any, deployment_bytecode: HexStr | None, runtime_bytecode: HexStr, test_instrumented_evm: InstrumentedEVM, blockchain_state: list, solver: Solver, args: argparse.Namespace, seed: float, source_map: SourceMap | None = None):
+    def __init__(self, contract_name: str, abi: list, deployment_bytecode: HexStr | None, runtime_bytecode: HexStr, test_instrumented_evm: InstrumentedEVM, blockchain_state: list, solver: Solver, args: argparse.Namespace, seed: float, source_map: SourceMap | None = None):
         global logger
 
         logger = initialize_logger('Fuzzer  ')
@@ -136,6 +137,9 @@ class Fuzzer:
             self.env.overall_pcs, self.env.overall_jumpis = get_pcs_and_jumpis(self.instrumented_evm.get_code(to_canonical_address(contract_address)).hex())
 
         if self.args.abi:
+            if 'constructor' in self.interface:
+                del self.interface['constructor']
+            
             contract_address = self.args.contract
         
         assert contract_address is not None
@@ -146,6 +150,12 @@ class Fuzzer:
                               bytecode=self.deployement_bytecode,
                               accounts=self.instrumented_evm.accounts,
                               contract=contract_address)
+
+        if self.args.history_seed:
+            with open(self.args.history_seed) as csv_file:
+                csv_reader = csv.DictReader(csv_file)
+                history_transactions = list(csv_reader)
+            generator.init_pool_from_history(history_transactions)
 
         # Create initial population
         size = 2 * len(self.interface)
@@ -176,7 +186,7 @@ class Fuzzer:
             if self.env.args.source:
                 self.env.cfg.save_control_flow_graph(os.path.splitext(self.env.args.source)[0]+'-'+self.contract_name, 'pdf')
             elif self.env.args.abi:
-                self.env.cfg.save_control_flow_graph(os.path.join(os.path.dirname(self.env.args.abi), self.contract_name), 'pdf')
+                self.env.cfg.save_control_flow_graph(os.path.join(os.path.dirname(self.env.args.abi[0]), self.contract_name), 'pdf')
 
         self.instrumented_evm.reset()
 
@@ -188,7 +198,7 @@ def main():
 
     # Check if contract has already been analyzed
     if args.results and os.path.exists(args.results):
-        os.remove(args.results)
+        # os.remove(args.results)
         logger.info('Contract '+str(args.source)+' has already been analyzed: '+str(args.results))
         sys.exit(0)
 
@@ -242,10 +252,12 @@ def main():
             sys.exit(-1)
 
     if args.abi:
-        with open(args.abi) as json_file:
-            abi = json.load(json_file)
-            runtime_bytecode = cast('HexStr', instrumented_evm.get_code(to_canonical_address(args.contract)).hex())
-            Fuzzer(args.contract, abi, None, runtime_bytecode, instrumented_evm, blockchain_state, solver, args, seed).run()
+        abi = []
+        for abi_file in args.abi:
+            with open(abi_file) as json_file:
+                abi += json.load(json_file)
+        runtime_bytecode = cast('HexStr', instrumented_evm.get_code(to_canonical_address(args.contract)).hex())
+        Fuzzer(args.contract, abi, None, runtime_bytecode, instrumented_evm, blockchain_state, solver, args, seed).run()
 
 def launch_argument_parser() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -254,8 +266,8 @@ def launch_argument_parser() -> argparse.Namespace:
     group1 = parser.add_mutually_exclusive_group(required=True)
     group1.add_argument('-s', '--source', type=str,
                         help='Solidity smart contract source code file (.sol).')
-    group1.add_argument('-a', '--abi', type=str,
-                        help='Smart contract ABI file (.json).')
+    group1.add_argument('-a', '--abi', type=str, nargs='*',
+                        help='Smart contract ABI file (.json), supports automatic merging of multiple files.')
 
     #group2 = parser.add_mutually_exclusive_group(required=True)
     parser.add_argument('-c', '--contract', type=str,
@@ -263,6 +275,8 @@ def launch_argument_parser() -> argparse.Namespace:
 
     parser.add_argument('-b', '--blockchain-state', type=str,
                         help='Initialize fuzzer with a blockchain state by providing a JSON file (if Solidity source code file provided) or a block number (if ABI file provided).')
+    
+    parser.add_argument('--history-seed', type=str, help='Initialize fuzzing pool with seed arguments from history file (.csv).')
 
     # Compiler parameters
     parser.add_argument('--solc', help='Solidity compiler version (default \'' + str(

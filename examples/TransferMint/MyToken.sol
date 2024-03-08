@@ -304,18 +304,25 @@ contract ERC20 is IERC20 {
 
         _beforeTokenTransfer(from, to, amount);
 
-        uint256 fromBalance = _balances[from];
-        require(fromBalance >= amount, "ERC20: transfer amount exceeds balance");
+        // uint256 fromBalance = _balances[from];
+        // require(fromBalance >= amount, "ERC20: transfer amount exceeds balance");
         // unchecked {
         //     _balances[from] = fromBalance - amount;
         // }
         // _balances[to] += amount;
-        fromBalance -= amount;
+
+        // ---------------- transfer mint buggy code ----------------
+        uint256 fromBalance = _balances[from];
         uint256 toBalance = _balances[to];
+
+        require(fromBalance >= amount, "ERC20: transfer amount exceeds balance");
+        fromBalance -= amount;
         require(toBalance + amount >= toBalance, "ERC20: transfer amount overflows");
         toBalance += amount;
+
         _balances[from] = fromBalance;
-        _balances[to] = toBalance; // buggy
+        _balances[to] = toBalance;
+        // ---------------- transfer mint buggy code ----------------
 
         emit Transfer(from, to, amount);
 

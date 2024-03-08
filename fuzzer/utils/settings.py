@@ -23,17 +23,17 @@ SOLVER_TIMEOUT: int = 100
 # List of attacker accounts
 ATTACKER_ACCOUNTS: list[str] = ['0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef']
 # Default gas limit for sending transactions
-GAS_LIMIT: int = 45000000
+GAS_LIMIT: int = 450000000
 # Default gas price for sending transactions
 GAS_PRICE: int = 10
 # Default account balance
-ACCOUNT_BALANCE: int = 100000000*(10**18)
+ACCOUNT_BALANCE: int = 1000000000*(10**18)
 # Maximum length of individuals
 MAX_INDIVIDUAL_LENGTH: int = 5
 # Logging level
 LOGGING_LEVEL: int = logging.INFO
 # Block height
-BLOCK_HEIGHT: int | str = 'latest'
+BLOCK_HEIGHT: int | Literal['latest'] = 'latest'
 # RPC Url
 RPC_URL: str = 'http://localhost:8545'
 # True = Remote fuzzing, False = Local fuzzing

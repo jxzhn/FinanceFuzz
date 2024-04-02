@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from z3 import Solver, ExprRef
     from engine.analysis.symbolic_taint_analysis import SymbolicTaintAnalyzer
     from engine.analysis.execution_trace_analysis import VisitedBranchRecord
-    from detectors import BasicDetectorExecutor, InvarientDetectorExecutor
+    from detectors import BasicDetectorExecutor, InvarientDetectorExecutor, EquivalenceDetectorExecutor
     import argparse
     from utils.control_flow_graph import ControlFlowGraph
     from engine.components import Population
@@ -79,6 +79,7 @@ class FuzzingEnvironment:
     symbolic_taint_analyzer: SymbolicTaintAnalyzer
     detector_executor: BasicDetectorExecutor
     invarient_detector_executor: InvarientDetectorExecutor
+    equivalence_detector_executor: EquivalenceDetectorExecutor
     interface: dict[str, list[str]]
     overall_pcs: list[int]
     overall_jumpis: list[int]

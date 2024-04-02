@@ -16,7 +16,7 @@ from eth_utils.hexadecimal import encode_hex
 from eth_utils.address import to_canonical_address
 from z3 import Solver
 from evm import InstrumentedEVM
-from detectors import BasicDetectorExecutor, InvarientDetectorExecutor
+from detectors import BasicDetectorExecutor, InvarientDetectorExecutor, EquivalenceDetectorExecutor
 from engine import EvolutionaryFuzzingEngine
 from engine.components import Generator, Population
 from engine.analysis import SymbolicTaintAnalyzer, ExecutionTraceAnalyzer
@@ -29,7 +29,7 @@ from engine.operators import Mutation
 from engine.fitness import fitness_function
 from utils import settings
 from utils.source_map import SourceMap
-from utils.utils import initialize_logger, compile, get_interface_from_abi, get_pcs_and_jumpis, get_function_signature_mapping, get_event_signature_mapping
+from utils.utils import initialize_logger, compile, get_interface_from_abi, get_pcs_and_jumpis, get_function_signature_mapping, get_event_signature_mapping, get_contract_types
 from utils.control_flow_graph import ControlFlowGraph
 
 if TYPE_CHECKING:
@@ -61,14 +61,20 @@ class Fuzzer:
         # Initialize results
         self.results: FuzzResult = {'errors': {}, 'advanced_errors': {}}
 
+        function_signature_mapping = get_function_signature_mapping(abi)
+        event_signature_mapping = get_event_signature_mapping(abi)
+        contract_types = get_contract_types({sig for _, sig in function_signature_mapping.items()}, {sig for _, sig in event_signature_mapping.items()})
+        logger.info(f'Contract types: {contract_types}')
+
         # Initialize fuzzing environment
         self.env = FuzzingEnvironment(instrumented_evm=self.instrumented_evm,
                                       contract_name=self.contract_name,
                                       solver=self.solver,
                                       results=self.results,
                                       symbolic_taint_analyzer=SymbolicTaintAnalyzer(),
-                                      detector_executor=BasicDetectorExecutor(source_map, get_function_signature_mapping(abi)),
-                                      invarient_detector_executor=InvarientDetectorExecutor(get_function_signature_mapping(abi), get_event_signature_mapping(abi)),
+                                      detector_executor=BasicDetectorExecutor(source_map, function_signature_mapping),
+                                      invarient_detector_executor=InvarientDetectorExecutor(contract_types, function_signature_mapping),
+                                      equivalence_detector_executor=EquivalenceDetectorExecutor(contract_types, function_signature_mapping),
                                       interface=self.interface,
                                       overall_pcs=self.overall_pcs,
                                       overall_jumpis=self.overall_jumpis,
@@ -97,7 +103,7 @@ class Fuzzer:
                         contract_address = cast('HexAddress', encode_hex(result.msg.storage_address))
                         self.instrumented_evm.accounts.append(contract_address)
                         self.env.nr_of_transactions += 1
-                        logger.debug('Contract deployed at %s', contract_address)
+                        logger.info('Contract deployed at %s', contract_address)
                         self.env.other_contracts.append(to_canonical_address(contract_address))
                         cc, _ = get_pcs_and_jumpis(self.instrumented_evm.get_code(to_canonical_address(contract_address)).hex())
                         self.env.len_overall_pcs_with_children += len(cc)
@@ -114,7 +120,7 @@ class Fuzzer:
                         'global_state': {},
                         'environment': {}
                     }
-                    out = self.instrumented_evm.deploy_transaction(input, int(transaction['gasPrice']))
+                    out = self.instrumented_evm.deploy_transaction(input, int(transaction['gasPrice']), reset_balance=True)
 
             if 'constructor' in self.interface:
                 del self.interface['constructor']
@@ -129,7 +135,7 @@ class Fuzzer:
                     contract_address = cast('HexAddress', encode_hex(result.msg.storage_address))
                     self.instrumented_evm.accounts.append(contract_address)
                     self.env.nr_of_transactions += 1
-                    logger.debug('Contract deployed at %s', contract_address)
+                    logger.info('Contract deployed at %s', contract_address)
 
             if contract_address in self.instrumented_evm.accounts:
                 self.instrumented_evm.accounts.remove(contract_address)
@@ -143,6 +149,25 @@ class Fuzzer:
             contract_address = self.args.contract
         
         assert contract_address is not None
+
+        if not settings.ENVIRONMENTAL_INSTRUMENTATION:
+            # compile and deploy helper contracts
+            for helper_src in settings.HELPER_CONTRACTS:
+                compiler_output = compile(self.args.solc_version, settings.EVM_VERSION, helper_src)
+                if not compiler_output:
+                    logger.error('No compiler output for: ' + helper_src)
+                    sys.exit(-1)
+                for contract_name, contract in compiler_output['contracts'][helper_src].items():
+                    if contract['abi'] and contract['evm']['bytecode']['object'] and contract['evm']['deployedBytecode']['object']:
+                        result = self.instrumented_evm.deploy_contract(self.instrumented_evm.accounts[0], contract['evm']['bytecode']['object'])
+                        if result.is_error:
+                            logger.error('Problem while deploying contract %s using account %s. Error message: %s', contract_name, self.instrumented_evm.accounts[0], result._error)
+                            sys.exit(-2)
+                        else:
+                            helper_address = cast('HexAddress', encode_hex(result.msg.storage_address))
+                            self.instrumented_evm.accounts.append(helper_address)
+                            self.env.nr_of_transactions += 1
+                            logger.info('Helper contract %s deployed at %s', contract_name, helper_address)
 
         self.instrumented_evm.create_snapshot()
 
@@ -206,7 +231,7 @@ def main():
     if args.seed:
         seed = args.seed
         if not 'PYTHONHASHSEED' in os.environ:
-            logger.debug('Please set PYTHONHASHSEED to \'1\' for Python\'s hash function to behave deterministically.')
+            logger.info('Please set PYTHONHASHSEED to \'1\' for Python\'s hash function to behave deterministically.')
     else:
         seed = random.random()
     random.seed(seed)

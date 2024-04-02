@@ -15,14 +15,16 @@ if TYPE_CHECKING:
     from .invarient.base import BaseInvarientDetector
     from evm.storage_emulation import ComputationAPIWithFuzzInfo
 
-
 class InvarientDetectorExecutor:
-    def __init__(self, function_signature_mapping: dict[str, str] = {}, event_signature_mapping: dict[str, str] = {}) -> None:
+    def __init__(self, contract_types: list[str], function_signature_mapping: dict[str, str] = {}) -> None:
         self.function_signature_mapping = function_signature_mapping
-        self.event_signatures = event_signature_mapping
         self.logger = initialize_logger('Detector')
+        self.is_erc20: bool = 'ERC20' in contract_types
 
-        self.token_balance_detector = TokenBalanceDetector(self.function_signature_mapping, self.event_signatures)
+        self.token_balance_detector = TokenBalanceDetector(self.is_erc20)
+    
+    def reset_detectors(self) -> None:
+        self.token_balance_detector.reset()
 
     @staticmethod
     def error_exists(errors: list[ErrorRecord], type: str) -> bool:
@@ -32,14 +34,14 @@ class InvarientDetectorExecutor:
         return False
 
     @staticmethod
-    def add_error(errors: dict[str, list[ErrorRecord]], target: str, type: str, individual: Individual, mfe: FuzzingEnvironment, detector: BaseInvarientDetector) -> bool:
-        assert mfe.execution_begin is not None
+    def add_error(errors: dict[str, list[ErrorRecord]], target: str, type: str, individual: Individual, env: FuzzingEnvironment, detector: BaseInvarientDetector) -> bool:
+        assert env.execution_begin is not None
         error: ErrorRecord = {
             'swc_id': -1,
             'severity': detector.severity,
             'type': type,
             'individual': individual.solution,
-            'time': time.time() - mfe.execution_begin,
+            'time': time.time() - env.execution_begin,
         }
         if not target in errors:
             errors[target] = [error]
@@ -59,15 +61,16 @@ class InvarientDetectorExecutor:
             return '\u001b[32m' # Green
         return ''
 
-    def prepare_detectors(self, mfe: FuzzingEnvironment) -> None:
-        self.token_balance_detector.prepare_detect_step(mfe)
+    def prepare_detectors(self, env: FuzzingEnvironment) -> None:
+        self.reset_detectors()
+        self.token_balance_detector.prepare_detect_step(env)
 
-    def run_detectors(self, test_input: InputDict, test_output: ComputationAPIWithFuzzInfo, errors: dict[str, list[ErrorRecord]], individual: Individual, mfe: FuzzingEnvironment, transaction_index: int) -> None:
-        target, error_msg = self.token_balance_detector.run_detect_step(test_input, test_output, mfe)
-        if target and InvarientDetectorExecutor.add_error(errors, target, 'ERC20 Balance Invarient', individual, mfe, self.token_balance_detector):
-            color = InvarientDetectorExecutor.get_color_for_severity( self.token_balance_detector.severity)
+    def run_detectors(self, tx_input: InputDict, tx_output: ComputationAPIWithFuzzInfo, errors: dict[str, list[ErrorRecord]], individual: Individual, env: FuzzingEnvironment, transaction_index: int) -> None:
+        target, error_msg = self.token_balance_detector.run_detect_step(tx_input, tx_output, env)
+        if target and InvarientDetectorExecutor.add_error(errors, target, 'ERC20 Balance Invarient', individual, env, self.token_balance_detector):
+            color = InvarientDetectorExecutor.get_color_for_severity(self.token_balance_detector.severity)
             self.logger.title(color+'-----------------------------------------------------')
-            self.logger.title(color+'      !!! ERC20 Balance Invarient detected !!!       ')
+            self.logger.title(color+'     !!! Balance invarient violated detected !!!     ')
             self.logger.title(color+'-----------------------------------------------------')
             self.logger.title(color+'Severity: '+self.token_balance_detector.severity)
             self.logger.title(color+'-----------------------------------------------------')

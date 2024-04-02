@@ -276,6 +276,11 @@ class StateAPIWithFuzzInfo(StateAPI):
     fuzzed_extcodesize: dict[HexAddress, int | None] | None
     fuzzed_returndatasize: dict[HexAddress, int | None] | None
 
+    # equivalence detector flags
+    zero_call_gas: bool | None
+    forbid_internal_transactions: bool | None
+    random_timestamp: bool | None
+
 TracedInstruction = TypedDict('TracedInstruction', {
     'pc': int,
     'op': str,
@@ -313,6 +318,8 @@ def fuzz_blocknumber_opcode_fn(computation: ComputationAPI) -> None:
     state = cast(StateAPIWithFuzzInfo, computation.state)
     if settings.ENVIRONMENTAL_INSTRUMENTATION and hasattr(computation.state, 'fuzzed_blocknumber') and state.fuzzed_blocknumber is not None:
         computation.stack_push_int(state.fuzzed_blocknumber)
+    elif hasattr(computation.state, 'random_timestamp') and state.random_timestamp == True:
+        computation.stack_push_int(random.randint(0, 2**64 - 1))
     else:
         computation.stack_push_int(computation.state.block_number)
 
@@ -332,9 +339,22 @@ def fuzz_call_opcode_fn(computation: ComputationAPI, opcode_fn: OpcodeAPI) -> He
         ) = computation.stack_pop_ints(5)
         computation.memory_write(memory_output_start_position, memory_output_size, b'\x00' * memory_output_size if random.randint(1, 2) == 1 else b'\xff' * memory_output_size)
         computation.stack_push_int(state.fuzzed_call_return[_to])
+    elif hasattr(computation.state, 'forbid_internal_transactions') and state.forbid_internal_transactions == True:
+        (
+            value,
+            memory_input_start_position,
+            memory_input_size,
+            memory_output_start_position,
+            memory_output_size,
+        ) = computation.stack_pop_ints(5)
+        computation.memory_write(memory_output_start_position, memory_output_size, b'\x00' * memory_output_size)
+        computation.stack_push_int(1)
     else:
         computation.stack_push_bytes(to)
-        computation.stack_push_int(gas)
+        if hasattr(computation.state, 'zero_call_gas') and state.zero_call_gas == True:
+            computation.stack_push_int(0)
+        else:
+            computation.stack_push_int(gas)
         opcode_fn(computation=computation)
     return _to
 

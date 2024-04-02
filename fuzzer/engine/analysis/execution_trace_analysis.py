@@ -137,7 +137,9 @@ class ExecutionTraceAnalyzer(OnTheFlyAnalysis):
         branches: dict[str, dict[str, bool]] = {}
         contract_address: HexAddress | None = None
 
-        env.detector_executor.initialize_detectors()
+        # Confuzzius original basic detectors
+        # env.detector_executor.initialize_detectors()
+        env.equivalence_detector_executor.prepare_detectors(env)
 
         for transaction_index, test in enumerate(indv.solution):
 
@@ -156,7 +158,7 @@ class ExecutionTraceAnalyzer(OnTheFlyAnalysis):
             env.invarient_detector_executor.prepare_detectors(env)
 
             try:
-                result = env.instrumented_evm.deploy_transaction(test)
+                result = env.instrumented_evm.deploy_transaction(test, reset_balance=True if transaction_index == 0 else False)
             except ValidationError as e:
                 self.logger.error('Validation error in %s : %s (ignoring for now)', indv.hash, e)
                 continue
@@ -174,6 +176,7 @@ class ExecutionTraceAnalyzer(OnTheFlyAnalysis):
 
             env.nr_of_transactions += 1
 
+            env.equivalence_detector_executor.add_transaction_step(test, result)
             env.invarient_detector_executor.run_detectors(test, result, env.results['advanced_errors'], indv, env, transaction_index)
 
             previous_instruction = None
@@ -187,9 +190,10 @@ class ExecutionTraceAnalyzer(OnTheFlyAnalysis):
 
                 env.symbolic_taint_analyzer.propagate_taint(instruction, contract_address)
 
-                env.detector_executor.run_detectors(previous_instruction, instruction, env.results['errors'],
-                                                env.symbolic_taint_analyzer.get_tainted_record(index=-2), indv, env, previous_branch,
-                                                transaction_index)
+                # Confuzzius original basic detectors
+                # env.detector_executor.run_detectors(previous_instruction, instruction, env.results['errors'],
+                #                                 env.symbolic_taint_analyzer.get_tainted_record(index=-2), indv, env, previous_branch,
+                #                                 transaction_index)
 
                 # If constructor, we don't have to take into account the constructor inputs because they will be part of the
                 # state. We don't have to compute the code coverage, because the code is not the deployed one. We don't need
@@ -486,6 +490,8 @@ class ExecutionTraceAnalyzer(OnTheFlyAnalysis):
                 contract_address = cast('HexAddress', encode_hex(result.msg.storage_address))
 
         env.individual_branches[indv.hash] = branches
+
+        env.equivalence_detector_executor.run_detectors(env.results['advanced_errors'], indv, env)
 
         env.symbolic_taint_analyzer.clear_storage()
         env.instrumented_evm.restore_from_snapshot()

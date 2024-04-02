@@ -185,6 +185,28 @@ def get_event_signature_mapping(abi: list) -> dict[str, str]:
             mapping[hash] = signature
     return mapping
 
+def get_contract_types(function_signatures: set[str], event_signatures: set[str]) -> list[str]:
+    contract_type: list[str] = []
+
+    erc20_functions: set[str] = {
+        'symbol()',
+        'decimals()',
+        'totalSupply()',
+        'balanceOf(address)',
+        'transfer(address,uint256)',
+        'transferFrom(address,address,uint256)',
+        'approve(address,uint256)',
+        'allowance(address,address)',
+    }
+    erc20_events: set[str] = {
+        'Transfer(address,address,uint256)',
+        'Approval(address,address,uint256)',
+    }
+    if function_signatures.issuperset(erc20_functions) and event_signatures.issuperset(erc20_events):
+        contract_type.append('ERC20')
+    
+    return contract_type
+
 def remove_swarm_hash(bytecode: str) -> str:
     if isinstance(bytecode, str):
         if bytecode.endswith('0029'):
@@ -270,3 +292,6 @@ def print_individual_solution_as_transaction(logger: MyLogger, individual_soluti
 def normalize_32_byte_hex_address(value: str) -> HexAddress:
     as_bytes = to_bytes(hexstr=value)
     return to_normalized_address(as_bytes[-20:])
+
+def to_hex(n: int, length: int) -> str:
+    return f'0x{n:0{length}x}'

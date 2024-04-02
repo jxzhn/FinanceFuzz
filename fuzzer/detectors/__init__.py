@@ -3,3 +3,4 @@
 
 from .basic_detector_executor import BasicDetectorExecutor
 from .invarient_detector_executor import InvarientDetectorExecutor
+from .equivalence_detector_executor import EquivalenceDetectorExecutor

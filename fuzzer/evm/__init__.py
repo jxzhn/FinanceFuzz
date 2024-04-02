@@ -174,7 +174,7 @@ class InstrumentedEVM:
         self.storage_emulator.set_balance(address, 1)
         return result
 
-    def deploy_transaction(self, input: InputDict, gas_price: int = settings.GAS_PRICE, debug: bool = False) -> ComputationAPIWithFuzzInfo:
+    def deploy_transaction(self, input: InputDict, gas_price: int = settings.GAS_PRICE, debug: bool = False, reset_balance: bool = False) -> ComputationAPIWithFuzzInfo:
         assert self.vm is not None
         transaction = input['transaction']
         from_account = to_canonical_address(decode_hex(transaction['from']))
@@ -219,7 +219,10 @@ class InstrumentedEVM:
         if 'returndatasize' in environment and environment['returndatasize'] is not None:
             state.fuzzed_returndatasize = environment['returndatasize']
 
-        self.storage_emulator.set_balance(from_account, settings.ACCOUNT_BALANCE)
+        if reset_balance:
+            for address in self.accounts:
+                self.storage_emulator.set_balance(to_canonical_address(address), settings.ACCOUNT_BALANCE)
+
         return self.execute(tx, debug=debug)
 
     def get_balance(self, address: Address) -> int:

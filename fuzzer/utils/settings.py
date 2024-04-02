@@ -25,7 +25,7 @@ ATTACKER_ACCOUNTS: list[str] = ['0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef']
 # Default gas limit for sending transactions
 GAS_LIMIT: int = 450000000
 # Default gas price for sending transactions
-GAS_PRICE: int = 10
+GAS_PRICE: int = 0
 # Default account balance
 ACCOUNT_BALANCE: int = 1000000000*(10**18)
 # Maximum length of individuals
@@ -40,3 +40,5 @@ RPC_URL: str = 'http://localhost:8545'
 REMOTE_FUZZING: bool = False
 # True = Environmental instrumentation enabled, False = Environmental instrumentation disabled
 ENVIRONMENTAL_INSTRUMENTATION: bool = True
+# Helper contracts to deploy
+HELPER_CONTRACTS: list[str] = ['fuzzer/helper_contracts/gas_consuming_fallback.sol']

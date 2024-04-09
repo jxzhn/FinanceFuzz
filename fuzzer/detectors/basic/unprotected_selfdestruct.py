@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 class UnprotectedSelfdestructDetector(BaseBasicDetector):
     def __init__(self) -> None:
+        super().__init__()
         self.swc_id = 106
         self.severity = 'High'
         self.init()

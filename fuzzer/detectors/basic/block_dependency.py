@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 class BlockDependencyDetector(BaseBasicDetector):
     def __init__(self) -> None:
+        super().__init__()
         self.swc_id = 120
         self.severity = 'Low'
         self.init()

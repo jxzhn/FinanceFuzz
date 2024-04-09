@@ -192,6 +192,9 @@ class InstrumentedEVM:
 
         state = cast('StateAPIWithFuzzInfo', self.vm.state)
 
+        # for reentrancy helper
+        state.reentrancy_tx_data = decode_hex(transaction['data'])
+
         block = input['block']
         if 'timestamp' in block and block['timestamp'] is not None:
             state.fuzzed_timestamp = block['timestamp']

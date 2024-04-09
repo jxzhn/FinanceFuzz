@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 class ReentrancyDetector(BaseBasicDetector):
     def __init__(self) -> None:
+        super().__init__()
         self.swc_id = 107
         self.severity = 'High'
         self.init()

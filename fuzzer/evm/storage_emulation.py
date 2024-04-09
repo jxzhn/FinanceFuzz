@@ -45,6 +45,7 @@ if TYPE_CHECKING:
     from eth.db.atomic import AtomicDB
     from eth.exceptions import VMError
     from eth.vm.stack import Stack
+    from collections import deque
 
 # STORAGE EMULATOR
 class EmulatorAccountDB(AccountDatabaseAPI):
@@ -269,6 +270,7 @@ class StateAPIWithFuzzInfo(StateAPI):
     This class is only used for unsafe type cast from StateAPI, and would not be instantiated.
     All the following attributes should be checked of existence before accessing.
     '''
+    # environmental instrumentation values
     fuzzed_timestamp: int | None
     fuzzed_blocknumber: int | None
     fuzzed_balance: int | None
@@ -276,9 +278,19 @@ class StateAPIWithFuzzInfo(StateAPI):
     fuzzed_extcodesize: dict[HexAddress, int | None] | None
     fuzzed_returndatasize: dict[HexAddress, int | None] | None
 
-    # equivalence detector flags
+    # reentrancy helper
+    reentrancy_helper: HexAddress | None
+    reentrancy_tx_data: bytes | None
+
+    # gasless send detector flags
     zero_call_gas: bool | None
+    full_call_gas: bool | None
+
+    # reentrancy detector flags
     forbid_internal_transactions: bool | None
+    internal_return_values: deque[tuple[bytes, int]] | None
+
+    # timestamp dependency detector flags
     random_timestamp: bool | None
 
 TracedInstruction = TypedDict('TracedInstruction', {
@@ -339,7 +351,8 @@ def fuzz_call_opcode_fn(computation: ComputationAPI, opcode_fn: OpcodeAPI) -> He
         ) = computation.stack_pop_ints(5)
         computation.memory_write(memory_output_start_position, memory_output_size, b'\x00' * memory_output_size if random.randint(1, 2) == 1 else b'\xff' * memory_output_size)
         computation.stack_push_int(state.fuzzed_call_return[_to])
-    elif hasattr(computation.state, 'forbid_internal_transactions') and state.forbid_internal_transactions == True:
+    elif hasattr(computation.state, 'forbid_internal_transactions') and hasattr(computation.state, 'internal_return_values')\
+            and state.forbid_internal_transactions == True and state.internal_return_values is not None:
         (
             value,
             memory_input_start_position,
@@ -347,12 +360,35 @@ def fuzz_call_opcode_fn(computation: ComputationAPI, opcode_fn: OpcodeAPI) -> He
             memory_output_start_position,
             memory_output_size,
         ) = computation.stack_pop_ints(5)
-        computation.memory_write(memory_output_start_position, memory_output_size, b'\x00' * memory_output_size)
-        computation.stack_push_int(1)
+        return_data, success = state.internal_return_values.popleft()
+        computation.memory_write(memory_output_start_position, memory_output_size, return_data)
+        computation.stack_push_int(success)
     else:
+        if hasattr(computation.state, 'reentrancy_helper') and hasattr(computation.state, 'reentrancy_tx_data')\
+                and state.reentrancy_helper is not None and _to == state.reentrancy_helper and state.reentrancy_tx_data is not None:
+            tx_data_size = len(state.reentrancy_tx_data)
+            # reassign memory space for tx_data
+            free_space_pointer = int.from_bytes(computation.memory_read_bytes(0x40, 32), 'big', signed=False)
+            computation.memory_write(0x40, 32, (free_space_pointer + tx_data_size).to_bytes(32, 'big'))
+            computation.extend_memory(free_space_pointer, tx_data_size)
+            # write tx_data to memory
+            computation.memory_write(free_space_pointer, tx_data_size, state.reentrancy_tx_data)
+            # substitute input data with tx_data
+            (
+                value,
+                memory_input_start_position,
+                memory_input_size,
+            ) = computation.stack_pop_ints(3)
+            computation.stack_push_int(tx_data_size)
+            computation.stack_push_int(free_space_pointer)
+            computation.stack_push_int(value)
+            # stop next reentrancy
+            state.reentrancy_tx_data = b''
         computation.stack_push_bytes(to)
         if hasattr(computation.state, 'zero_call_gas') and state.zero_call_gas == True:
             computation.stack_push_int(0)
+        elif hasattr(computation.state, 'full_call_gas') and state.full_call_gas == True:
+            computation.stack_push_int(computation.get_gas_remaining())
         else:
             computation.stack_push_int(gas)
         opcode_fn(computation=computation)

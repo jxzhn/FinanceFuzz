@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 class LeakingEtherDetector(BaseBasicDetector):
     def __init__(self) -> None:
+        super().__init__()
         self.swc_id = 105
         self.severity = 'High'
         self.init()

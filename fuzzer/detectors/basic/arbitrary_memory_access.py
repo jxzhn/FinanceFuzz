@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 class ArbitraryMemoryAccessDetector(BaseBasicDetector):
     def __init__(self) -> None:
+        super().__init__()
         self.swc_id = 124
         self.severity = 'High'
         self.init()

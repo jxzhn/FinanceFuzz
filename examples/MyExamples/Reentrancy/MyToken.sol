@@ -465,7 +465,8 @@ contract MyToken is ERC20 {
     function withdraw() public {
         uint256 amount = balanceOf(msg.sender);
         require(amount > 0, "MyToken: balance is zero");
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        require(success, "MyToken: transfer failed");
         _burn(msg.sender, amount);
-        payable(msg.sender).send(amount);
     }
 }

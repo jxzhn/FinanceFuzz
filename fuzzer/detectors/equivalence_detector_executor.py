@@ -10,8 +10,10 @@ from utils.utils import print_individual_solution_as_transaction, initialize_log
 from eth_utils.address import to_normalized_address, to_canonical_address
 from web3 import Web3
 from eth.constants import ZERO_ADDRESS
-from .equivalence.gasless_send_detector import GaslessSendDetector
+from .equivalence.gasless_send_detector import GaslessSendDetector1, GaslessSendDetector2
 from .equivalence.reentrancy_detector import ReentrancyDetector
+from .equivalence.tod_detector import TODDetector
+from .equivalence.time_dep_detector import TimeDepDetector
 from eth_abi.abi import encode
 from utils import settings
    
@@ -33,12 +35,24 @@ class EquivalenceDetectorExecutor:
         self.transaction_inputs: list[InputDict] = []
         self.transaction_outputs: list[ComputationAPIWithFuzzInfo] = []
 
-        self.detectors: list[BaseEquivalenceDetector] = [GaslessSendDetector(), ReentrancyDetector()]
+        self.detectors: list[BaseEquivalenceDetector] = [GaslessSendDetector1(), GaslessSendDetector2(), ReentrancyDetector(), TODDetector(), TimeDepDetector()]
 
     def reset_detectors(self) -> None:
         self.initial_snapshot = None
         self.transaction_inputs = []
         self.transaction_outputs = []
+    
+    @staticmethod
+    def get_called_functions_sorted(individual: Individual) -> str:
+        functions: set[str] = set()
+        for tx in individual.solution:
+            if 'data' in tx['transaction']:
+                data = tx['transaction']['data']
+                if data.startswith('0x'):
+                    functions.add(data[:10])
+                else:
+                    functions.add(data[:8])
+        return ' '.join(sorted(functions))
 
     @staticmethod
     def error_exists(errors: list[ErrorRecord], type: str) -> bool:
@@ -133,18 +147,22 @@ class EquivalenceDetectorExecutor:
             EquivalenceDetectorExecutor.restore_storage_snapshot(self.initial_snapshot, env)
             
             # run detector-flavored transactions
+            skip_detector: bool = False
             for transaction_index in range(len(self.transaction_inputs)):
                 tx_input = self.transaction_inputs[transaction_index]
                 tx_output = self.transaction_outputs[transaction_index]
-                detector.run_flavored_transaction(tx_input, tx_output, transaction_index, env)
-            detector.final(env)
+                if not detector.run_flavored_transaction(tx_input, tx_output, transaction_index, env):
+                    skip_detector = True
+                    break
+            if skip_detector or not detector.final(env):
+                continue
             
             # check if equivalence is violated
             changed_ether_map = {address: EquivalenceDetectorExecutor.get_address_balance(address, env) for address in ether_related_addresses}
             changed_erc20_token_map = {address: EquivalenceDetectorExecutor.get_erc20_token_balance(contract_address, address, env) for address in erc20_related_addresses}
 
-            if ether_map != changed_ether_map or erc20_token_map != changed_erc20_token_map:
-                EquivalenceDetectorExecutor.add_error(errors, individual.hash, detector.error_msg, individual, env, detector)
+            if (ether_map != changed_ether_map or erc20_token_map != changed_erc20_token_map) and \
+                EquivalenceDetectorExecutor.add_error(errors, EquivalenceDetectorExecutor.get_called_functions_sorted(individual), detector.error_msg, individual, env, detector):
                 color = EquivalenceDetectorExecutor.get_color_for_severity(detector.severity)
                 self.logger.title(color+'-----------------------------------------------------')
                 self.logger.title(color+'        !!! Equivalence violated detected !!!        ')

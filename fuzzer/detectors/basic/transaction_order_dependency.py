@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
 class TransactionOrderDependencyDetector(BaseBasicDetector):
     def __init__(self) -> None:
+        super().__init__()
         self.swc_id = 114
         self.severity = 'Medium'
 

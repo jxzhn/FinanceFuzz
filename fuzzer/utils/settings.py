@@ -41,4 +41,4 @@ REMOTE_FUZZING: bool = False
 # True = Environmental instrumentation enabled, False = Environmental instrumentation disabled
 ENVIRONMENTAL_INSTRUMENTATION: bool = True
 # Helper contracts to deploy
-HELPER_CONTRACTS: list[str] = ['fuzzer/helper_contracts/gas_consuming_fallback.sol']
+HELPER_CONTRACTS: list[str] = ['fuzzer/helper_contracts/gas_consuming_fallback.sol', 'fuzzer/helper_contracts/reentrancy_attacker.sol']

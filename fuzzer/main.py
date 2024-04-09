@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from eth_typing import HexStr, HexAddress
     from engine.components.individual import InputDict
     from engine.environment import FuzzResult
+    from evm.storage_emulation import StateAPIWithFuzzInfo
 
 class Fuzzer:
     def __init__(self, contract_name: str, abi: list, deployment_bytecode: HexStr | None, runtime_bytecode: HexStr, test_instrumented_evm: InstrumentedEVM, blockchain_state: list, solver: Solver, args: argparse.Namespace, seed: float, source_map: SourceMap | None = None):
@@ -86,6 +87,7 @@ class Fuzzer:
                                       abi=abi)
 
     def run(self):
+        assert self.instrumented_evm.vm is not None
         contract_address = None
         self.instrumented_evm.create_fake_accounts()
 
@@ -168,6 +170,9 @@ class Fuzzer:
                             self.instrumented_evm.accounts.append(helper_address)
                             self.env.nr_of_transactions += 1
                             logger.info('Helper contract %s deployed at %s', contract_name, helper_address)
+                            if contract_name == 'ReentrancyAttacker':
+                                state = cast('StateAPIWithFuzzInfo', self.instrumented_evm.vm.state)
+                                state.reentrancy_helper = helper_address
 
         self.instrumented_evm.create_snapshot()
 
@@ -300,8 +305,6 @@ def launch_argument_parser() -> argparse.Namespace:
 
     parser.add_argument('-b', '--blockchain-state', type=str,
                         help='Initialize fuzzer with a blockchain state by providing a JSON file (if Solidity source code file provided) or a block number (if ABI file provided).')
-    
-    parser.add_argument('--history-seed', type=str, help='Initialize fuzzing pool with seed arguments from history file (.csv).')
 
     # Compiler parameters
     parser.add_argument('--solc', help='Solidity compiler version (default \'' + str(
@@ -334,6 +337,8 @@ def launch_argument_parser() -> argparse.Namespace:
     parser.add_argument('--seed', type=float, help='Initialize the random number generator with a given seed.')
     parser.add_argument('--cfg', help='Build control-flow graph and highlight code coverage.', action='store_true')
     parser.add_argument('--rpc-url', help='Ethereum client RPC url', action='store', dest='rpc_url', type=str)
+
+    parser.add_argument('--history-seed', help='Initialize fuzzing pool with seed arguments from history file (.csv).', dest='history_seed', type=str)
 
     parser.add_argument('--data-dependency',
                         help='Disable/Enable data dependency analysis: 0 - Disable, 1 - Enable (default: 1)', action='store',

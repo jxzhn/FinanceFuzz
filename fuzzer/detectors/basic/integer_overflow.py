@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 class IntegerOverflowDetector(BaseBasicDetector):
     def __init__(self) -> None:
+        super().__init__()
         self.swc_id = 101
         self.severity = 'High'
         self.init()

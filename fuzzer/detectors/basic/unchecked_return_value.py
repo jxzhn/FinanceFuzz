@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 class UncheckedReturnValueDetector(BaseBasicDetector):
     def __init__(self) -> None:
+        super().__init__()
         self.swc_id = 104
         self.severity = 'Medium'
         self.init()

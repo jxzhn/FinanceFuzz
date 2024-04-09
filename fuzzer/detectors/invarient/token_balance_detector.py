@@ -21,9 +21,11 @@ if TYPE_CHECKING:
 
 class TokenBalanceDetector(BaseInvarientDetector):
     def __init__(self, is_erc20: bool) -> None:
-        self.severity = 'High'
+        super().__init__()
 
+        self.severity = 'High'
         self.is_erc20 = is_erc20
+        
         self.storage_snapshot: AtomicDB | None = None
     
     def reset(self) -> None:

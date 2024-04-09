@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 class LockingEtherDetector(BaseBasicDetector):
     def __init__(self) -> None:
+        super().__init__()
         self.swc_id = 132
         self.severity = 'Medium'
 

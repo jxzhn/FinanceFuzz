@@ -4,8 +4,6 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
-from fuzzer.engine.environment import FuzzingEnvironment
-
 from .base import BaseEquivalenceDetector
 from utils.utils import initialize_logger
 from utils import settings
@@ -18,6 +16,8 @@ if TYPE_CHECKING:
 
 class TimeDepDetector(BaseEquivalenceDetector):
     def __init__(self) -> None:
+        super().__init__()
+        
         self.severity = 'Medium'
         self.error_msg = 'Timestamp dependency equivalence is violated!'
 
@@ -38,7 +38,7 @@ class TimeDepDetector(BaseEquivalenceDetector):
             self.logger.error('Validation error in timestamp dependency detector: %s (ignoring for now)', e)
         
         state.random_timestamp = None
-        return result.is_error
+        return True
 
     def final(self, env: FuzzingEnvironment) -> bool:
         return True

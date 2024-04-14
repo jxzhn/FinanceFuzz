@@ -17,8 +17,8 @@ if TYPE_CHECKING:
     from multiprocessing.managers import ListProxy, DictProxy
     from multiprocessing.synchronize import Lock, Event
 
-NUM_FUZZING_TIMES = 10
-MAX_PROCESS_NUM = 32
+NUM_FUZZING_TIMES = 20
+MAX_PROCESS_NUM = 20
 RESULT_UPDATE_INTERVAL = 30 # (seconds)
 
 FuzzResult = TypedDict('FuzzResult', {
@@ -97,7 +97,7 @@ def fuzz_worker(pid_to_index: DictProxy[int, int], lock: Lock, fuzzer_path: str,
         if os.path.exists(output_file):
             os.remove(output_file)
         
-        if os.system(f'PYTHONHASHSEED={t + 1} python {fuzzer_path} -s {os.path.join(base_path, contract_src)} --solc {solc_version} --evm {evm_version} -r {output_file} --seed {t + 1} >/dev/null 2>&1') != 0:
+        if os.system(f'python {fuzzer_path} -s {os.path.join(base_path, contract_src)} --solc {solc_version} --evm {evm_version} -r {output_file} >/dev/null 2>&1') != 0:
             error = True
             break
 

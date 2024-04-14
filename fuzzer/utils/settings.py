@@ -9,7 +9,7 @@ EVM_VERSION: Literal['homestead', 'byzantium', 'petersburg'] = 'petersburg'
 # Size of population
 POPULATION_SIZE: int | None = None
 # Number of generations
-GENERATIONS: int = 20
+GENERATIONS: int = 5
 # Global timeout in seconds
 GLOBAL_TIMEOUT: int | None = None
 # Probability of crossover

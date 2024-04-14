@@ -22,13 +22,11 @@ class ReentrancyDetector(BaseEquivalenceDetector):
         super().__init__()
         
         self.severity = 'High'
+        self.type = 'Reentrancy'
         self.error_msg = 'Reentrancy equivalence is violated!'
+        self.is_enable = not settings.ENVIRONMENTAL_INSTRUMENTATION
 
         self.logger = initialize_logger('Detector')
-    
-    @property
-    def is_enable(self) -> bool:
-        return not settings.ENVIRONMENTAL_INSTRUMENTATION
     
     def run_flavored_transaction(self, tx_input: InputDict, tx_output: ComputationAPIWithFuzzInfo, transaction_index: int, env: FuzzingEnvironment) -> bool:
         tx_list: list[tuple[InputDict, deque[tuple[bytes, int]]]] = []

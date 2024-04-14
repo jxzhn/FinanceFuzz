@@ -155,7 +155,8 @@ class Fuzzer:
         if not settings.ENVIRONMENTAL_INSTRUMENTATION:
             # compile and deploy helper contracts
             for helper_src in settings.HELPER_CONTRACTS:
-                compiler_output = compile(self.args.solc_version, settings.EVM_VERSION, helper_src)
+                helper_src = os.path.join(os.path.dirname(__file__), 'helper_contracts', helper_src)
+                compiler_output = compile(settings.HELPER_COMPILER_VERSION, settings.EVM_VERSION, helper_src)
                 if not compiler_output:
                     logger.error('No compiler output for: ' + helper_src)
                     sys.exit(-1)
@@ -188,7 +189,7 @@ class Fuzzer:
             generator.init_pool_from_history(history_transactions)
 
         # Create initial population
-        size = 2 * len(self.interface)
+        size = max(2 * len(self.interface), 100)
         population = Population(indv_generator=generator,
                                 size=settings.POPULATION_SIZE if settings.POPULATION_SIZE else size).init()
 
@@ -336,7 +337,7 @@ def launch_argument_parser() -> argparse.Namespace:
     parser.add_argument('-r', '--results', type=str, help='Folder or JSON file where results should be stored.')
     parser.add_argument('--seed', type=float, help='Initialize the random number generator with a given seed.')
     parser.add_argument('--cfg', help='Build control-flow graph and highlight code coverage.', action='store_true')
-    parser.add_argument('--rpc-url', help='Ethereum client RPC url', action='store', dest='rpc_url', type=str)
+    parser.add_argument('--rpc-url', help='Ethereum RPC service provider url.', action='store', dest='rpc_url', type=str)
 
     parser.add_argument('--history-seed', help='Initialize fuzzing pool with seed arguments from history file (.csv).', dest='history_seed', type=str)
 
@@ -347,7 +348,7 @@ def launch_argument_parser() -> argparse.Namespace:
                         help='Disable/Enable constraint solving: 0 - Disable, 1 - Enable (default: 1)', action='store',
                         dest='constraint_solving', type=int)
     parser.add_argument('--environmental-instrumentation',
-                        help='Disable/Enable environmental instrumentation: 0 - Disable, 1 - Enable (default: 1)', action='store',
+                        help='Disable/Enable environmental instrumentation: 0 - Disable, 1 - Enable (default: 0)', action='store',
                         dest='environmental_instrumentation', type=int)
     parser.add_argument('--max-individual-length',
                         help='Maximal length of an individual (default: ' + str(settings.MAX_INDIVIDUAL_LENGTH) + ')', action='store',
@@ -398,7 +399,7 @@ def launch_argument_parser() -> argparse.Namespace:
     if args.constraint_solving == None:
         args.constraint_solving = 1
     if args.environmental_instrumentation == None:
-        args.environmental_instrumentation = 1
+        args.environmental_instrumentation = 0
 
     if args.environmental_instrumentation == 1:
         settings.ENVIRONMENTAL_INSTRUMENTATION = True

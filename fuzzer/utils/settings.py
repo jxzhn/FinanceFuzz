@@ -9,7 +9,7 @@ EVM_VERSION: Literal['homestead', 'byzantium', 'petersburg'] = 'petersburg'
 # Size of population
 POPULATION_SIZE: int | None = None
 # Number of generations
-GENERATIONS: int = 10
+GENERATIONS: int = 20
 # Global timeout in seconds
 GLOBAL_TIMEOUT: int | None = None
 # Probability of crossover
@@ -29,16 +29,18 @@ GAS_PRICE: int = 0
 # Default account balance
 ACCOUNT_BALANCE: int = 1000000000*(10**18)
 # Maximum length of individuals
-MAX_INDIVIDUAL_LENGTH: int = 5
+MAX_INDIVIDUAL_LENGTH: int = 10
 # Logging level
 LOGGING_LEVEL: int = logging.INFO
 # Block height
 BLOCK_HEIGHT: int | Literal['latest'] = 'latest'
-# RPC Url
+# RPC Service Provider URL
 RPC_URL: str = 'http://localhost:8545'
 # True = Remote fuzzing, False = Local fuzzing
 REMOTE_FUZZING: bool = False
 # True = Environmental instrumentation enabled, False = Environmental instrumentation disabled
-ENVIRONMENTAL_INSTRUMENTATION: bool = True
+ENVIRONMENTAL_INSTRUMENTATION: bool = False
 # Helper contracts to deploy
-HELPER_CONTRACTS: list[str] = ['fuzzer/helper_contracts/gas_consuming_fallback.sol', 'fuzzer/helper_contracts/reentrancy_attacker.sol']
+HELPER_CONTRACTS: list[str] = ['gas_consuming_fallback.sol', 'reentrancy_attacker.sol']
+# Helper contract compiler version
+HELPER_COMPILER_VERSION: str = '0.8.24'

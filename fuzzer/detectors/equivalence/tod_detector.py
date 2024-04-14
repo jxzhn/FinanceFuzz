@@ -21,14 +21,12 @@ class TODDetector(BaseEquivalenceDetector):
         super().__init__()
         
         self.severity = 'Medium'
+        self.type = 'Transaction Order Dependency'
         self.error_msg = 'Transaction order dependency equivalence is violated!'
+        self.is_enable = True
 
         self.logger = initialize_logger('Detector')
         self.sender_tx_map: dict[HexAddress, deque[InputDict]] = {}
-    
-    @property
-    def is_enable(self) -> bool:
-        return True
     
     def run_flavored_transaction(self, tx_input: InputDict, tx_output: ComputationAPIWithFuzzInfo, transaction_index: int, env: FuzzingEnvironment) -> bool:
         sender = tx_input['transaction']['from']

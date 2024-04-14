@@ -41,18 +41,6 @@ class EquivalenceDetectorExecutor:
         self.initial_snapshot = None
         self.transaction_inputs = []
         self.transaction_outputs = []
-    
-    @staticmethod
-    def get_called_functions_sorted(individual: Individual) -> str:
-        functions: set[str] = set()
-        for tx in individual.solution:
-            if 'data' in tx['transaction']:
-                data = tx['transaction']['data']
-                if data.startswith('0x'):
-                    functions.add(data[:10])
-                else:
-                    functions.add(data[:8])
-        return ' '.join(sorted(functions))
 
     @staticmethod
     def error_exists(errors: list[ErrorRecord], type: str) -> bool:
@@ -162,7 +150,8 @@ class EquivalenceDetectorExecutor:
             changed_erc20_token_map = {address: EquivalenceDetectorExecutor.get_erc20_token_balance(contract_address, address, env) for address in erc20_related_addresses}
 
             if (ether_map != changed_ether_map or erc20_token_map != changed_erc20_token_map) and \
-                EquivalenceDetectorExecutor.add_error(errors, EquivalenceDetectorExecutor.get_called_functions_sorted(individual), detector.error_msg, individual, env, detector):
+                EquivalenceDetectorExecutor.add_error(errors, individual.hash, detector.type, individual, env, detector):
+                detector.is_enable = False # disable detector for the rest of the fuzzing process 
                 color = EquivalenceDetectorExecutor.get_color_for_severity(detector.severity)
                 self.logger.title(color+'-----------------------------------------------------')
                 self.logger.title(color+'        !!! Equivalence violated detected !!!        ')

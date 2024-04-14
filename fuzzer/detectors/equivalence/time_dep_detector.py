@@ -19,13 +19,11 @@ class TimeDepDetector(BaseEquivalenceDetector):
         super().__init__()
         
         self.severity = 'Medium'
+        self.type = 'Timestamp Dependency'
         self.error_msg = 'Timestamp dependency equivalence is violated!'
+        self.is_enable = True
 
         self.logger = initialize_logger('Detector')
-    
-    @property
-    def is_enable(self) -> bool:
-        return not settings.ENVIRONMENTAL_INSTRUMENTATION
     
     def run_flavored_transaction(self, tx_input: InputDict, tx_output: ComputationAPIWithFuzzInfo, transaction_index: int, env: FuzzingEnvironment) -> bool:
         assert env.instrumented_evm.vm is not None

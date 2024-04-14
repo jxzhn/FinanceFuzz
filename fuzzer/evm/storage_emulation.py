@@ -360,7 +360,10 @@ def fuzz_call_opcode_fn(computation: ComputationAPI, opcode_fn: OpcodeAPI) -> He
             memory_output_start_position,
             memory_output_size,
         ) = computation.stack_pop_ints(5)
-        return_data, success = state.internal_return_values.popleft()
+        if len(state.internal_return_values) > 0:
+            return_data, success = state.internal_return_values.popleft()
+        else:
+            return_data, success = b'', 1
         computation.memory_write(memory_output_start_position, memory_output_size, return_data)
         computation.stack_push_int(success)
     else:

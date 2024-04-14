@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import annotations
+import multiprocessing.process
 from typing import TYPE_CHECKING, TypedDict, NotRequired
 
 import os
@@ -14,10 +15,11 @@ import multiprocessing
 
 if TYPE_CHECKING:
     from multiprocessing.managers import ListProxy, DictProxy
-    from multiprocessing.synchronize import Lock
+    from multiprocessing.synchronize import Lock, Event
 
-NUM_FUZZING_TIMES = 5
+NUM_FUZZING_TIMES = 10
 MAX_PROCESS_NUM = 32
+RESULT_UPDATE_INTERVAL = 30 # (seconds)
 
 FuzzResult = TypedDict('FuzzResult', {
     'contract': NotRequired[str],
@@ -66,20 +68,19 @@ def fuzz_worker(pid_to_index: DictProxy[int, int], lock: Lock, fuzzer_path: str,
         contract_content = fp.read()
     
     pragma_match = re.search(r'pragma solidity .*;', contract_content)
-    if pragma_match is None:
-        fuzz_result.append({
-            'error': 'No solidity version pragma statement found'
-        })
-        print_index_line(pidx, lock, f'({index+1}/{total}) \x1b[31mContract {contract_src} does not have a solidity version pragma statement\x1b[0m')
-        return
-    pragma_str = pragma_match.group()
-    solc_version = solcx.install._select_pragma_version(pragma_str, solcx.get_installed_solc_versions())
-    if solc_version is None:
-        fuzz_result.append({
-            'error': 'No suitable solc version found'
-        })
-        print_index_line(pidx, lock, f'({index+1}/{total}) \x1b[31mCannot find a suitable solc version for contract {contract_src}\x1b[0m')
-        return
+    no_pragma_version = pragma_match is None
+    if no_pragma_version:
+        solc_version = Version('0.4.26')
+    else:
+        pragma_str = pragma_match.group()
+        solc_version = solcx.install._select_pragma_version(pragma_str, solcx.get_installed_solc_versions())
+        if solc_version is None:
+            fuzz_result.append({
+                'contract': contract_src,
+                'error': 'No suitable solc version found'
+            })
+            print_index_line(pidx, lock, f'({index+1}/{total}) \x1b[31mCannot find a suitable solc version for contract {contract_src}\x1b[0m')
+            return
 
     if solc_version < Version('0.4.21'):
         evm_version = 'homestead'
@@ -96,19 +97,20 @@ def fuzz_worker(pid_to_index: DictProxy[int, int], lock: Lock, fuzzer_path: str,
         if os.path.exists(output_file):
             os.remove(output_file)
         
-        if os.system(f'PYTHONHASHSEED=1 python {fuzzer_path} -s {os.path.join(base_path, contract_src)} --solc {solc_version} --evm {evm_version} -r {output_file} --seed {t/10 + 0.1} >/dev/null 2>&1') != 0:
+        if os.system(f'PYTHONHASHSEED={t + 1} python {fuzzer_path} -s {os.path.join(base_path, contract_src)} --solc {solc_version} --evm {evm_version} -r {output_file} --seed {t + 1} >/dev/null 2>&1') != 0:
             error = True
             break
 
         with open(output_file, 'r') as fp:
             output = json.load(fp)
         for contract_name, contract_result in output.items():
-            for target, error_list in contract_result['advanced_errors'].items():
-                vulnerabilities.update([err['type'] for err in error_list])
+            for target, vul_list in contract_result['advanced_errors'].items():
+                vulnerabilities.update([vul['type'] for vul in vul_list])
     
     if error:
         fuzz_result.append({
-            'error': 'Fuzzer error (most likely compilation failure)'
+            'contract': contract_src,
+            'error': 'Compilation error with default 0.4.26 solc' if no_pragma_version else 'Compilation error with specified solc version'
         })
         print_index_line(pidx, lock, f'({index+1}/{total}) \x1b[31mContract {contract_src} failed fuzzing\x1b[0m')
         return
@@ -119,10 +121,17 @@ def fuzz_worker(pid_to_index: DictProxy[int, int], lock: Lock, fuzzer_path: str,
     })
     print_index_line(pidx, lock, f'({index+1}/{total}) \x1b[32mContract {contract_src} fuzzing finished\x1b[0m')
 
+def result_updater(fuzz_result: ListProxy[FuzzResult], stop_event: Event) -> None:
+    while not stop_event.is_set():
+        stop_event.wait(timeout=RESULT_UPDATE_INTERVAL)
+        with open('./auto_run_result.json', 'w') as fp:
+            json.dump(fuzz_result._getvalue(), fp, indent=2)
+
 def main():
     fuzzer_path = os.path.join(os.path.dirname(__file__), '..', 'fuzzer', 'main.py')
 
     manager = multiprocessing.Manager()
+
     pid_to_index: DictProxy[int, int] = manager.dict()
     lock = manager.Lock()
     process_pool_size = min(multiprocessing.cpu_count(), MAX_PROCESS_NUM)
@@ -135,12 +144,16 @@ def main():
 
     for index, contract_src in enumerate(contract_list):
         pool.apply_async(fuzz_worker, (pid_to_index, lock, fuzzer_path, base_path, contract_src, index, len(contract_list), fuzz_result), error_callback=lambda e: print(e))
-    
     pool.close()
-    pool.join()
     
-    with open('./auto_run_result.json', 'w') as fp:
-        json.dump(list(fuzz_result), fp, indent=2)
+    stop_event = manager.Event() # Event to stop the result updater
+    result_updater_p = multiprocessing.Process(target=result_updater, args=(fuzz_result, stop_event))
+    result_updater_p.start()
+    
+    pool.join()
+
+    stop_event.set()
+    result_updater_p.join()
 
 if __name__ == '__main__':
     main()

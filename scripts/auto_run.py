@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 from __future__ import annotations
-import multiprocessing.process
 from typing import TYPE_CHECKING, TypedDict, NotRequired
 
 import os
@@ -12,6 +11,7 @@ import solcx.install
 from packaging.version import Version
 import json
 import multiprocessing
+import pprint
 
 if TYPE_CHECKING:
     from multiprocessing.managers import ListProxy, DictProxy
@@ -91,14 +91,14 @@ def fuzz_worker(pid_to_index: DictProxy[int, int], lock: Lock, fuzzer_path: str,
     
     vulnerabilities: set[str] = set()
     output_file = f'/tmp/fuzz_result_{pidx}.json'
-    error = False
+    error_code = 0
 
-    for t in range(NUM_FUZZING_TIMES):
+    for _ in range(NUM_FUZZING_TIMES):
         if os.path.exists(output_file):
             os.remove(output_file)
         
-        if os.system(f'python {fuzzer_path} -s {os.path.join(base_path, contract_src)} --solc {solc_version} --evm {evm_version} -r {output_file} >/dev/null 2>&1') != 0:
-            error = True
+        error_code = os.system(f'ulimit -v 500000; python {fuzzer_path} -s {os.path.join(base_path, contract_src)} --solc {solc_version} --evm {evm_version} -r {output_file} >/dev/null 2>&1') >> 8
+        if error_code != 0:
             break
 
         with open(output_file, 'r') as fp:
@@ -107,10 +107,17 @@ def fuzz_worker(pid_to_index: DictProxy[int, int], lock: Lock, fuzzer_path: str,
             for target, vul_list in contract_result['advanced_errors'].items():
                 vulnerabilities.update([vul['type'] for vul in vul_list])
     
-    if error:
+    if error_code == 255:
         fuzz_result.append({
             'contract': contract_src,
             'error': 'Compilation error with default 0.4.26 solc' if no_pragma_version else 'Compilation error with specified solc version'
+        })
+        print_index_line(pidx, lock, f'({index+1}/{total}) \x1b[31mContract {contract_src} failed compilation\x1b[0m')
+        return
+    elif error_code != 0:
+        fuzz_result.append({
+            'contract': contract_src,
+            'error': 'Fuzzer error'
         })
         print_index_line(pidx, lock, f'({index+1}/{total}) \x1b[31mContract {contract_src} failed fuzzing\x1b[0m')
         return
@@ -125,7 +132,8 @@ def result_updater(fuzz_result: ListProxy[FuzzResult], stop_event: Event) -> Non
     while not stop_event.is_set():
         stop_event.wait(timeout=RESULT_UPDATE_INTERVAL)
         with open('./auto_run_result.json', 'w') as fp:
-            json.dump(fuzz_result._getvalue(), fp, indent=2)
+            result_json = pprint.pformat(fuzz_result._getvalue(), compact=True).replace("'",'"')
+            fp.write(result_json)
 
 def main():
     fuzzer_path = os.path.join(os.path.dirname(__file__), '..', 'fuzzer', 'main.py')

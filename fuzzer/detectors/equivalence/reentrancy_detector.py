@@ -9,8 +9,9 @@ from utils.utils import initialize_logger
 from utils import settings
 from collections import deque
 from eth_utils.address import to_normalized_address
-from eth_utils.hexadecimal import encode_hex
+from eth_utils.hexadecimal import encode_hex, decode_hex
 from eth_utils.exceptions import ValidationError
+from eth.constants import GAS_TX, GAS_TXDATAZERO, GAS_TXDATANONZERO
 
 if TYPE_CHECKING:
     from evm.storage_emulation import ComputationAPIWithFuzzInfo, StateAPIWithFuzzInfo
@@ -60,7 +61,10 @@ class ReentrancyDetector(BaseEquivalenceDetector):
         for i, (tx, retvals) in enumerate(tx_list):
             state.internal_return_values = retvals
             if i != 0:
-                tx['transaction']['gaslimit'] += 21000
+                tx_data = decode_hex(tx['transaction']['data'])
+                num_zeros = tx_data.count(b'\x00')
+                num_nonzeros = len(tx_data) - num_zeros
+                tx['transaction']['gaslimit'] += GAS_TX + num_zeros * GAS_TXDATAZERO + num_nonzeros * GAS_TXDATANONZERO
             try:
                 result = env.instrumented_evm.deploy_transaction(tx, reset_balance=True if transaction_index == 0 and i == 0 else False)
             except ValidationError as e:

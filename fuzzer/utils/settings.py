@@ -9,7 +9,7 @@ EVM_VERSION: Literal['homestead', 'byzantium', 'petersburg'] = 'petersburg'
 # Size of population
 POPULATION_SIZE: int | None = None
 # Number of generations
-GENERATIONS: int = 5
+GENERATIONS: int = 100
 # Global timeout in seconds
 GLOBAL_TIMEOUT: int | None = None
 # Probability of crossover
@@ -17,11 +17,11 @@ PROBABILITY_CROSSOVER: float = 0.9
 # Probability of mutation
 PROBABILITY_MUTATION: float = 0.1
 # Maximum number of symbolic execution calls before restting population
-MAX_SYMBOLIC_EXECUTION: int = 10
+MAX_SYMBOLIC_EXECUTION: int = 50
 # Solver timeout in milliseconds
 SOLVER_TIMEOUT: int = 100
 # List of attacker accounts
-ATTACKER_ACCOUNTS: list[str] = ['0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef']
+ATTACKER_ACCOUNTS: list[str] = [] # '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
 # Default gas limit for sending transactions
 GAS_LIMIT: int = 450000000
 # Default gas price for sending transactions

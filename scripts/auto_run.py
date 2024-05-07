@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from multiprocessing.managers import ListProxy, DictProxy
     from multiprocessing.synchronize import Lock, Event
 
-NUM_FUZZING_TIMES = 20
+NUM_FUZZING_TIMES = 1
 MAX_PROCESS_NUM = 20
 RESULT_UPDATE_INTERVAL = 30 # (seconds)
 

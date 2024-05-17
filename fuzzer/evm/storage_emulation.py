@@ -331,7 +331,7 @@ def fuzz_blocknumber_opcode_fn(computation: ComputationAPI) -> None:
     if settings.ENVIRONMENTAL_INSTRUMENTATION and hasattr(computation.state, 'fuzzed_blocknumber') and state.fuzzed_blocknumber is not None:
         computation.stack_push_int(state.fuzzed_blocknumber)
     elif hasattr(computation.state, 'random_timestamp') and state.random_timestamp == True:
-        computation.stack_push_int(random.randint(0, 2**64 - 1))
+        computation.stack_push_int(random.randint(0, 1800000000))
     else:
         computation.stack_push_int(computation.state.block_number)
 

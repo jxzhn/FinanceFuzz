@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from multiprocessing.managers import ListProxy, DictProxy
     from multiprocessing.synchronize import Lock, Event
 
-NUM_FUZZING_TIMES = 1
+NUM_FUZZING_TIMES = 2
 MAX_PROCESS_NUM = 20
 RESULT_UPDATE_INTERVAL = 30 # (seconds)
 
@@ -97,7 +97,7 @@ def fuzz_worker(pid_to_index: DictProxy[int, int], lock: Lock, fuzzer_path: str,
         if os.path.exists(output_file):
             os.remove(output_file)
         
-        error_code = os.system(f'ulimit -v 500000; python {fuzzer_path} -s {os.path.join(base_path, contract_src)} --solc {solc_version} --evm {evm_version} -r {output_file} >/dev/null 2>&1') >> 8
+        error_code = os.system(f'ulimit -v 1000000; python {fuzzer_path} -s {os.path.join(base_path, contract_src)} --solc {solc_version} --evm {evm_version} -r {output_file} >/dev/null 2>&1') >> 8
         if error_code != 0:
             break
 

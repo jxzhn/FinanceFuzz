@@ -11,7 +11,7 @@ from collections import deque
 from eth_utils.address import to_normalized_address
 from eth_utils.hexadecimal import encode_hex, decode_hex
 from eth_utils.exceptions import ValidationError
-from eth.constants import GAS_TX, GAS_TXDATAZERO, GAS_TXDATANONZERO
+from eth.constants import GAS_TX, GAS_TXDATAZERO, GAS_TXDATANONZERO, GAS_CALLSTIPEND
 
 if TYPE_CHECKING:
     from evm.storage_emulation import ComputationAPIWithFuzzInfo, StateAPIWithFuzzInfo
@@ -65,6 +65,8 @@ class ReentrancyDetector(BaseEquivalenceDetector):
                 num_zeros = tx_data.count(b'\x00')
                 num_nonzeros = len(tx_data) - num_zeros
                 tx['transaction']['gaslimit'] += GAS_TX + num_zeros * GAS_TXDATAZERO + num_nonzeros * GAS_TXDATANONZERO
+                if tx['transaction']['value'] != 0:
+                    tx['transaction']['gaslimit'] -= GAS_CALLSTIPEND
             try:
                 result = env.instrumented_evm.deploy_transaction(tx, reset_balance=True if transaction_index == 0 and i == 0 else False)
             except ValidationError as e:

@@ -30,12 +30,14 @@ class ReentrancyDetector(BaseEquivalenceDetector):
         self.logger = initialize_logger('Detector')
     
     def run_flavored_transaction(self, tx_input: InputDict, tx_output: ComputationAPIWithFuzzInfo, transaction_index: int, env: FuzzingEnvironment) -> bool:
-        tx_list: list[tuple[InputDict, deque[tuple[bytes, int]]]] = []
+        tx_list: list[tuple[InputDict, deque[tuple[bytes, int, int]]]] = []
 
         queue: deque[ComputationAPIWithFuzzInfo] = deque()
         queue.append(tx_output)
         while len(queue) > 0:
             computation = queue.popleft()
+            if computation.is_error:
+                continue
             tx: InputDict = {
                 'transaction': {
                     'from': to_normalized_address(computation.msg.sender),
@@ -48,16 +50,18 @@ class ReentrancyDetector(BaseEquivalenceDetector):
                 'global_state': tx_input['global_state'],
                 'environment': tx_input['environment']
             }
-            retvals: deque[tuple[bytes, int]] = deque()
+            retvals: deque[tuple[bytes, int, int]] = deque()
             for child in computation.children:
                 queue.append(child)
-                retvals.append((child.return_data, 1 if child.is_success else 0))
+                retvals.append((child.return_data, 1 if child.is_success else 0, child.get_gas_used()))
             tx_list.append((tx, retvals))
         
         assert env.instrumented_evm.vm is not None
         state = cast('StateAPIWithFuzzInfo', env.instrumented_evm.vm.state)
         state.forbid_internal_transactions = True
 
+        if transaction_index == 0:
+            env.instrumented_evm.reset_balance()
         for i, (tx, retvals) in enumerate(tx_list):
             state.internal_return_values = retvals
             if i != 0:
@@ -65,10 +69,9 @@ class ReentrancyDetector(BaseEquivalenceDetector):
                 num_zeros = tx_data.count(b'\x00')
                 num_nonzeros = len(tx_data) - num_zeros
                 tx['transaction']['gaslimit'] += GAS_TX + num_zeros * GAS_TXDATAZERO + num_nonzeros * GAS_TXDATANONZERO
-                if tx['transaction']['value'] != 0:
-                    tx['transaction']['gaslimit'] -= GAS_CALLSTIPEND
             try:
-                result = env.instrumented_evm.deploy_transaction(tx, reset_balance=True if transaction_index == 0 and i == 0 else False)
+                # TODO: it seems that the gas consumed has something wrong
+                result = env.instrumented_evm.deploy_transaction(tx)
             except ValidationError as e:
                 self.logger.error('Validation error in reentrancy detector: %s (ignoring for now)', e)
         

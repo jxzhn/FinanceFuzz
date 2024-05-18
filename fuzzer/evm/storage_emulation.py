@@ -288,7 +288,7 @@ class StateAPIWithFuzzInfo(StateAPI):
 
     # reentrancy detector flags
     forbid_internal_transactions: bool | None
-    internal_return_values: deque[tuple[bytes, int]] | None
+    internal_return_values: deque[tuple[bytes, int, int]] | None
 
     # timestamp dependency detector flags
     random_timestamp: bool | None
@@ -361,11 +361,13 @@ def fuzz_call_opcode_fn(computation: ComputationAPI, opcode_fn: OpcodeAPI) -> He
             memory_output_size,
         ) = computation.stack_pop_ints(5)
         if len(state.internal_return_values) > 0:
-            return_data, success = state.internal_return_values.popleft()
+            return_data, success, gas_consumed = state.internal_return_values.popleft()
         else:
-            return_data, success = b'', 1
+            # TODO: why would this condition happen?
+            return_data, success, gas_consumed = b'', 1, 0
         computation.memory_write(memory_output_start_position, memory_output_size, return_data)
         computation.stack_push_int(success)
+        computation.consume_gas(gas_consumed, 'emulating internal call')
     else:
         if hasattr(computation.state, 'reentrancy_helper') and hasattr(computation.state, 'reentrancy_tx_data')\
                 and state.reentrancy_helper is not None and _to == state.reentrancy_helper and state.reentrancy_tx_data is not None:

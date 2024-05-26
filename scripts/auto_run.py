@@ -17,13 +17,13 @@ if TYPE_CHECKING:
     from multiprocessing.managers import ListProxy, DictProxy
     from multiprocessing.synchronize import Lock, Event
 
-NUM_FUZZING_TIMES = 2
 MAX_PROCESS_NUM = 20
 RESULT_UPDATE_INTERVAL = 30 # (seconds)
 
 FuzzResult = TypedDict('FuzzResult', {
     'contract': NotRequired[str],
     'vulnerabilities': NotRequired[list[str]],
+    'result_with_time': NotRequired[list[tuple[str, float]]],
     'error': NotRequired[str]
 })
 
@@ -89,24 +89,13 @@ def fuzz_worker(pid_to_index: DictProxy[int, int], lock: Lock, fuzzer_path: str,
     else:
         evm_version = 'petersburg'
     
-    vulnerabilities: set[str] = set()
     output_file = f'/tmp/fuzz_result_{pidx}.json'
     error_code = 0
 
-    for _ in range(NUM_FUZZING_TIMES):
-        if os.path.exists(output_file):
+    if os.path.exists(output_file):
             os.remove(output_file)
         
-        error_code = os.system(f'ulimit -v 1000000; python {fuzzer_path} -s {os.path.join(base_path, contract_src)} --solc {solc_version} --evm {evm_version} -r {output_file} >/dev/null 2>&1') >> 8
-        if error_code != 0:
-            break
-
-        with open(output_file, 'r') as fp:
-            output = json.load(fp)
-        for contract_name, contract_result in output.items():
-            for target, vul_list in contract_result['advanced_errors'].items():
-                vulnerabilities.update([vul['type'] for vul in vul_list])
-    
+    error_code = os.system(f'ulimit -v 1000000; python {fuzzer_path} -s {os.path.join(base_path, contract_src)} --solc {solc_version} --evm {evm_version} -r {output_file} >/dev/null 2>&1') >> 8
     if error_code == 255:
         fuzz_result.append({
             'contract': contract_src,
@@ -121,10 +110,21 @@ def fuzz_worker(pid_to_index: DictProxy[int, int], lock: Lock, fuzzer_path: str,
         })
         print_index_line(pidx, lock, f'({index+1}/{total}) \x1b[31mContract {contract_src} failed fuzzing\x1b[0m')
         return
+    
+    vulnerabilities: set[str] = set()
+    result_with_time: list[tuple[str, float]] = []
+
+    with open(output_file, 'r') as fp:
+        output = json.load(fp)
+    for contract_name, contract_result in output.items():
+        for indv_hash, vul_list in contract_result['advanced_errors'].items():
+            vulnerabilities.update([vul['type'] for vul in vul_list])
+            result_with_time.extend([(vul['type'], vul['time']) for vul in vul_list])
             
     fuzz_result.append({
         'contract': contract_src,
-        'vulnerabilities': list(vulnerabilities)
+        'vulnerabilities': list(vulnerabilities),
+        'result_with_time': sorted(result_with_time, key=lambda x: x[1]),
     })
     print_index_line(pidx, lock, f'({index+1}/{total}) \x1b[32mContract {contract_src} fuzzing finished\x1b[0m')
 

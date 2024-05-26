@@ -178,7 +178,7 @@ class InstrumentedEVM:
         for address in self.accounts:
             self.storage_emulator.set_balance(to_canonical_address(address), settings.ACCOUNT_BALANCE)
 
-    def deploy_transaction(self, input: InputDict, gas_price: int = settings.GAS_PRICE, debug: bool = False, reset_balance: bool = False) -> ComputationAPIWithFuzzInfo:
+    def deploy_transaction(self, input: InputDict, gas_price: int = settings.GAS_PRICE, debug: bool = False, reset_balance: bool = False, no_reentrancy_tx_data: bool = False) -> ComputationAPIWithFuzzInfo:
         assert self.vm is not None
         transaction = input['transaction']
         from_account = to_canonical_address(decode_hex(transaction['from']))
@@ -197,7 +197,8 @@ class InstrumentedEVM:
         state = cast('StateAPIWithFuzzInfo', self.vm.state)
 
         # for reentrancy helper
-        state.reentrancy_tx_data = decode_hex(transaction['data'])
+        if not no_reentrancy_tx_data:
+            state.reentrancy_tx_data = decode_hex(transaction['data'])
 
         block = input['block']
         if 'timestamp' in block and block['timestamp'] is not None:

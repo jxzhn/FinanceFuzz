@@ -151,7 +151,6 @@ class EquivalenceDetectorExecutor:
 
             if (ether_map != changed_ether_map or erc20_token_map != changed_erc20_token_map) and \
                 EquivalenceDetectorExecutor.add_error(errors, individual.hash, detector.type, individual, env, detector):
-                detector.is_enable = False # disable detector for the rest of the fuzzing process 
                 color = EquivalenceDetectorExecutor.get_color_for_severity(detector.severity)
                 self.logger.title(color+'-----------------------------------------------------')
                 self.logger.title(color+'        !!! Equivalence violated detected !!!        ')

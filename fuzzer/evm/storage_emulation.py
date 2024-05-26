@@ -46,6 +46,7 @@ if TYPE_CHECKING:
     from eth.exceptions import VMError
     from eth.vm.stack import Stack
     from collections import deque
+    from engine.components.individual import InputDict
 
 # STORAGE EMULATOR
 class EmulatorAccountDB(AccountDatabaseAPI):
@@ -289,6 +290,7 @@ class StateAPIWithFuzzInfo(StateAPI):
     # reentrancy detector flags
     forbid_internal_transactions: bool | None
     internal_return_values: deque[tuple[bytes, int, int]] | None
+    forbided_transactions: deque[InputDict] | None # used as output
 
     # timestamp dependency detector flags
     random_timestamp: bool | None
@@ -323,6 +325,9 @@ def fuzz_timestamp_opcode_fn(computation: ComputationAPI) -> None:
     state = cast(StateAPIWithFuzzInfo, computation.state)
     if settings.ENVIRONMENTAL_INSTRUMENTATION and hasattr(computation.state, 'fuzzed_timestamp') and state.fuzzed_timestamp is not None:
         computation.stack_push_int(state.fuzzed_timestamp)
+    elif hasattr(computation.state, 'random_timestamp') and state.random_timestamp == True:
+        # 2016-01-01 00:00:00 ~ 2027-01-15 16:00:00
+        computation.stack_push_int(random.randint(1451577600, 1800000000))
     else:
         computation.stack_push_int(computation.state.timestamp)
 
@@ -330,8 +335,6 @@ def fuzz_blocknumber_opcode_fn(computation: ComputationAPI) -> None:
     state = cast(StateAPIWithFuzzInfo, computation.state)
     if settings.ENVIRONMENTAL_INSTRUMENTATION and hasattr(computation.state, 'fuzzed_blocknumber') and state.fuzzed_blocknumber is not None:
         computation.stack_push_int(state.fuzzed_blocknumber)
-    elif hasattr(computation.state, 'random_timestamp') and state.random_timestamp == True:
-        computation.stack_push_int(random.randint(0, 1800000000))
     else:
         computation.stack_push_int(computation.state.block_number)
 
@@ -351,23 +354,6 @@ def fuzz_call_opcode_fn(computation: ComputationAPI, opcode_fn: OpcodeAPI) -> He
         ) = computation.stack_pop_ints(5)
         computation.memory_write(memory_output_start_position, memory_output_size, b'\x00' * memory_output_size if random.randint(1, 2) == 1 else b'\xff' * memory_output_size)
         computation.stack_push_int(state.fuzzed_call_return[_to])
-    elif hasattr(computation.state, 'forbid_internal_transactions') and hasattr(computation.state, 'internal_return_values')\
-            and state.forbid_internal_transactions == True and state.internal_return_values is not None:
-        (
-            value,
-            memory_input_start_position,
-            memory_input_size,
-            memory_output_start_position,
-            memory_output_size,
-        ) = computation.stack_pop_ints(5)
-        if len(state.internal_return_values) > 0:
-            return_data, success, gas_consumed = state.internal_return_values.popleft()
-        else:
-            # TODO: why would this condition happen?
-            return_data, success, gas_consumed = b'', 1, 0
-        computation.memory_write(memory_output_start_position, memory_output_size, return_data)
-        computation.stack_push_int(success)
-        computation.consume_gas(gas_consumed, 'emulating internal call')
     else:
         if hasattr(computation.state, 'reentrancy_helper') and hasattr(computation.state, 'reentrancy_tx_data')\
                 and state.reentrancy_helper is not None and _to == state.reentrancy_helper and state.reentrancy_tx_data is not None:
@@ -389,10 +375,42 @@ def fuzz_call_opcode_fn(computation: ComputationAPI, opcode_fn: OpcodeAPI) -> He
             computation.stack_push_int(value)
             # stop next reentrancy
             state.reentrancy_tx_data = b''
+        if hasattr(computation.state, 'forbid_internal_transactions') and hasattr(computation.state, 'internal_return_values')\
+            and state.forbid_internal_transactions == True and state.internal_return_values is not None:
+            (
+                value,
+                memory_input_start_position,
+                memory_input_size,
+                memory_output_start_position,
+                memory_output_size,
+            ) = computation.stack_pop_ints(5)
+            if len(state.internal_return_values) != 0:
+                return_data, success, gas_consumed = state.internal_return_values.popleft()
+            else:
+                raise ValueError('Internal return values are empty')
+            data = computation.memory_read(memory_input_start_position, memory_input_size).tobytes()
+            tx: InputDict = {
+                'transaction': {
+                    'from': to_normalized_address(computation.msg.to),
+                    'to': to_normalized_address(_to),
+                    'value': value,
+                    'gaslimit': gas,
+                    'data': to_hex(data)
+                },
+                'block': {},
+                'global_state': {},
+                'environment': {}
+            }
+            if state.forbided_transactions is not None:
+                state.forbided_transactions.append(tx)
+            computation.memory_write(memory_output_start_position, memory_output_size, return_data if return_data != b'' else b'\x00' * memory_output_size)
+            computation.stack_push_int(success)
+            computation.consume_gas(gas_consumed, 'Emulating internal call')
+            return _to
         computation.stack_push_bytes(to)
-        if hasattr(computation.state, 'zero_call_gas') and state.zero_call_gas == True:
+        if hasattr(computation.state, 'zero_call_gas') and state.zero_call_gas == True and computation.msg.depth == 0:
             computation.stack_push_int(0)
-        elif hasattr(computation.state, 'full_call_gas') and state.full_call_gas == True:
+        elif hasattr(computation.state, 'full_call_gas') and state.full_call_gas == True and computation.msg.depth == 0:
             computation.stack_push_int(computation.get_gas_remaining())
         else:
             computation.stack_push_int(gas)

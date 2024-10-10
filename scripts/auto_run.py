@@ -93,7 +93,7 @@ def fuzz_worker(pid_to_index: DictProxy[int, int], lock: Lock, fuzzer_path: str,
     error_code = 0
 
     if os.path.exists(output_file):
-            os.remove(output_file)
+        os.remove(output_file)
         
     error_code = os.system(f'ulimit -v 1000000; python {fuzzer_path} -s {os.path.join(base_path, contract_src)} --solc {solc_version} --evm {evm_version} -r {output_file} >/dev/null 2>&1') >> 8
     if error_code == 255:
@@ -132,7 +132,7 @@ def result_updater(fuzz_result: ListProxy[FuzzResult], stop_event: Event) -> Non
     while not stop_event.is_set():
         stop_event.wait(timeout=RESULT_UPDATE_INTERVAL)
         with open('./auto_run_result.json', 'w') as fp:
-            result_json = pprint.pformat(fuzz_result._getvalue(), compact=True).replace("'",'"')
+            result_json = pprint.pformat(fuzz_result._getvalue(), compact=True).replace("'",'"').replace('(', '[').replace(')', ']')
             fp.write(result_json)
 
 def main():

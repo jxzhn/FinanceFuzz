@@ -1,6 +1,6 @@
 > NOTICE: Must be run with Python 3.12 or higher due to a lot of new type hint features are used.
 
-MyFuzzer: modified from [ConFuzzius](https://github.com/christoftorres/ConFuzzius)
+FinanceFuzz: modified from [ConFuzzius](https://github.com/christoftorres/ConFuzzius)
 ===========
 
 <img src="https://thumbs.dreamstime.com/b/confucius-vector-portrait-line-art-illustration-confucius-line-art-portrait-138676693.jpg" width="200">
